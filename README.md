@@ -1,65 +1,55 @@
 # TrippieAI Travel Planner
 
-TrippieAI is an intelligent travel planning application that generates personalized travel itineraries using AI. Users can specify their destination, travel duration, interests, and budget to receive a tailored day-by-day travel plan and hotel recommendations.
+TrippieAI is a state-of-the-art, intelligent travel planning application that leverages advanced AI (Gemini/OpenAI) to craft personalized high-end itineraries. Designed for the modern explorer, it transforms vague travel ideas into detailed, day-by-day plans in seconds.
 
-## Project Structure
+## 🏗️ Technical Architecture
 
-- **`frontend/`**: Next.js 15 web application with Tailwind CSS.
-- **`backend/`**: Node.js & Express API with MongoDB and TypeScript.
+TrippieAI is built on a robust, decoupled architecture designed for performance and scalability:
 
-## Getting Started
+- **Frontend (UI Layer)**: Built with **Next.js 15** (App Router). It uses **Redux Toolkit** for sophisticated state management, **Tailwind CSS v4** for cutting-edge aesthetics, and **Framer Motion** for fluid, premium animations.
+- **Backend (API Layer)**: A **Node.js & Express** service authored in **TypeScript**. It handles secure **JWT & Google OAuth** authentication, complex itinerary processing, and multi-provider AI integrations.
+- **Intelligence (AI Layer)**: Seamlessly integrates with **Google Gemini** and **OpenAI** to generate structured JSON-based travel plans tailored to user-specific vibre, budget, and durations.
+- **Data (Persistence Layer)**: Uses **MongoDB** (Mongoose) to securely store user profiles, encrypted credentials, and personalized itineraries.
+
+## 📂 Project Structure
+
+- **[`frontend/`](file:///Users/vedantkhatri/Trao-AI-Travel-Planner/frontend/README.md)**: Next.js 15 web application.
+- **[`backend/`](file:///Users/vedantkhatri/Trao-AI-Travel-Planner/backend/README.md)**: TypeScript Express API.
+- **[`Documentation/`](file:///Users/vedantkhatri/.gemini/antigravity/brain/63625e08-b8dc-4e9b-8b0b-8b51fa2bcd07/walkthrough.md)**: Detailed feature walkthroughs and implementation notes.
+
+## 🚀 Getting Started
 
 ### 1. Prerequisites
-- **Node.js**: v18 or later
-- **MongoDB**: A running instance (local or Cloud Atlas)
-- **API Key**: (Optional) OpenAI API Key for real-time itinerary generation.
+- **Node.js**: v18.17+ or v20+
+- **MongoDB**: Local instance or a free cluster on MongoDB Atlas.
+- **AI Access**: A Gemini API Key or OpenAI API Key.
 
-### 2. Installation
-
-Clone the repository and install dependencies for both the frontend and backend.
+### 2. Fast Setup
 
 ```bash
-# Install backend dependencies
+# Backend Setup
 cd backend
 npm install
+cp .env.example .env # Create and configure your secrets
 
-# Install frontend dependencies
+# Frontend Setup
 cd ../frontend
 npm install
 ```
 
-### 3. Setup Environment Variables
+### 3. Environment Configuration
 
-Create a `.env` file in the `backend/` directory with the following content:
-
+The backend requires a `.env` file with the following minimum configuration:
 ```env
 PORT=5001
-MONGO_URI=mongodb://localhost:27017/trippieai-travel-planner
-JWT_SECRET=your_jwt_secret_here
-OPENAI_API_KEY=your_openai_api_key_here
+MONGO_URI=mongodb://localhost:27017/trippieai
+JWT_SECRET=your_secret_key
+GEMINI_API_KEY=your_key_here
 ```
 
-### 4. Running the Project
+## 🌐 Deployment
 
-Open two terminal windows:
-
-**Terminal 1 (Backend):**
-```bash
-cd backend
-npm run dev
-```
-
-**Terminal 2 (Frontend):**
-```bash
-cd frontend
-npm run dev
-```
-
-The application will be available at `http://localhost:3000`.
-
----
-
-## Technical Stack
-- **Frontend**: Next.js, Tailwind CSS, Lucide Icons, Axios.
-- **Backend**: Express, MongoDB (Mongoose), TypeScript.
-- **Auth**: JWT-based secure authentication.
+Ready to go live? Check out our **[Step-by-Step Deployment Guide](file:///Users/vedantkhatri/.gemini/antigravity/brain/63625e08-b8dc-4e9b-8b0b-8b51fa2bcd07/deployment_guide.md)** for detailed instructions on hosting for free on:
+- **Vercel** (Frontend)
+- **Render** (Backend)
+- **MongoDB Atlas** (Database)
