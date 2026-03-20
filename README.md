@@ -1,6 +1,6 @@
-# Trao AI Travel Planner
+# TrippieAI Travel Planner
 
-Trao AI is an intelligent travel planning application that generates personalized travel itineraries using AI. Users can specify their destination, travel duration, interests, and budget to receive a tailored day-by-day travel plan and hotel recommendations.
+TrippieAI is an intelligent travel planning application that generates personalized travel itineraries using AI. Users can specify their destination, travel duration, interests, and budget to receive a tailored day-by-day travel plan and hotel recommendations.
 
 ## Project Structure
 
@@ -34,7 +34,7 @@ Create a `.env` file in the `backend/` directory with the following content:
 
 ```env
 PORT=5001
-MONGO_URI=mongodb://localhost:27017/trao-travel-planner
+MONGO_URI=mongodb://localhost:27017/trippieai-travel-planner
 JWT_SECRET=your_jwt_secret_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```

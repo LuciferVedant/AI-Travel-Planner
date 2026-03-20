@@ -39,9 +39,9 @@ export default function LandingPage() {
             <span>Next Gen Travel Planning</span>
           </div>
           
-          <h1 className="text-5xl font-black tracking-tight sm:text-7xl lg:text-8xl mb-8 leading-[0.9] text-[var(--foreground)]">
-            Explore the World <br/> 
-            <span className="text-gradient">with Trao AI</span>
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9] text-[var(--foreground)]">
+            TRAVEL <span className="text-blue-500">SMARTER</span><br />
+            WITH <span className="text-gradient">TrippieAI</span>
           </h1>
           
           <p className="text-lg sm:text-xl leading-relaxed text-slate-500 dark:text-slate-400 mb-12 max-w-2xl mx-auto font-medium">
@@ -96,8 +96,8 @@ export default function LandingPage() {
           />
           <FeatureCard 
             icon={<Zap className="text-yellow-400" />}
-            title="Instant Export"
-            description="Download your dream itinerary as a PDF and share it with your squad."
+            title="Instant Share"
+            description="Invite your friends to the trip and plan your dream adventure together in real-time."
             delay={0.3}
           />
         </div>
@@ -107,9 +107,9 @@ export default function LandingPage() {
       <div className="py-20 text-center border-t border-white/5 opacity-50">
         <div className="flex items-center justify-center gap-2 text-[var(--foreground)] font-bold mb-4">
           <MapPin size={20} className="text-blue-500" />
-          <span>Trao AI</span>
+          <span>TrippieAI</span>
         </div>
-        <p className="text-xs text-slate-500">© 2026 Trao AI Travel Labs. All rights reserved.</p>
+        <p className="text-xs text-slate-500">© 2026 TrippieAI Travel Labs. All rights reserved.</p>
       </div>
     </div>
   );

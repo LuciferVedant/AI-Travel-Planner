@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 interface TokenPayload {
   userId: string;
+  provider: 'local' | 'google';
 }
 
 declare global {

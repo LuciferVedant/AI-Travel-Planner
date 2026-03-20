@@ -1,6 +1,6 @@
-# Trao AI - Frontend
+# TrippieAI - Frontend
 
-The user interface for the Trao AI Travel Planner.
+The user interface for the TrippieAI Travel Planner.
 
 ## Tech Stack
 - **Framework**: Next.js 15 (App Router)

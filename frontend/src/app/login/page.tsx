@@ -10,6 +10,8 @@ import { useNotification } from '@/components/NotificationProvider';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 
+import { GoogleLogin } from '@react-oauth/google';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,8 +35,19 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSuccess = async (response: any) => {
+    try {
+      const res = await api.post('/auth/google', { credential: response.credential });
+      dispatch(setCredentials({ token: res.data.token, user: res.data.user }));
+      showNotification('Successfully signed in with Google!', 'success');
+      router.push('/dashboard');
+    } catch (err: any) {
+      showNotification('Google login failed', 'error');
+    }
+  };
+
   return (
-    <div className="flex justify-center items-center min-h-[80vh] py-20 px-4 relative overflow-hidden">
+    <div className="flex justify-center items-center min-h-[80vh] py-20 px-4 relative overflow-hidden text-[var(--foreground)]">
       {/* Background Decor */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[500px] bg-blue-500/5 blur-[120px] rounded-full -z-10" />
       
@@ -81,6 +94,25 @@ export default function LoginPage() {
             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <>SIGN IN <ArrowRight size={20} /></>}
           </button>
         </form>
+
+        <div className="mt-8 flex flex-col items-center gap-6">
+          <div className="flex items-center gap-4 w-full text-slate-500">
+            <div className="h-px bg-white/10 flex-1" />
+            <span className="text-[10px] font-black uppercase tracking-widest">OR</span>
+            <div className="h-px bg-white/10 flex-1" />
+          </div>
+          
+          <div className="w-full flex justify-center">
+            <GoogleLogin 
+              onSuccess={handleGoogleSuccess} 
+              onError={() => showNotification('Google login failed', 'error')}
+              theme="filled_black"
+              shape="pill"
+              size="large"
+              width="320"
+            />
+          </div>
+        </div>
 
         <p className="mt-10 text-center text-slate-500 text-xs font-bold uppercase tracking-wide">
           Not planned a trip yet?{' '}

@@ -4,6 +4,7 @@ interface User {
   id: string;
   username: string;
   email: string;
+  provider: 'local' | 'google';
 }
 
 interface AuthState {
@@ -28,6 +29,10 @@ const authSlice = createSlice({
       localStorage.setItem('user', JSON.stringify(action.payload.user));
       localStorage.setItem('token', action.payload.token);
     },
+    updateUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+      localStorage.setItem('user', JSON.stringify(action.payload));
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -40,5 +45,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, logout, setLoading } = authSlice.actions;
+export const { setCredentials, updateUser, logout, setLoading } = authSlice.actions;
 export default authSlice.reducer;

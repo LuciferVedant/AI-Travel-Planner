@@ -10,6 +10,8 @@ import { useNotification } from '@/components/NotificationProvider';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
+import { GoogleLogin } from '@react-oauth/google';
+
 export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -34,8 +36,19 @@ export default function SignupPage() {
     }
   };
 
+  const handleGoogleSuccess = async (response: any) => {
+    try {
+      const res = await api.post('/auth/google', { credential: response.credential });
+      dispatch(setCredentials({ token: res.data.token, user: res.data.user }));
+      showNotification('Welcome to TrippieAI! Journey begins.', 'success');
+      router.push('/dashboard');
+    } catch (err: any) {
+      showNotification('Google sign-up failed', 'error');
+    }
+  };
+
   return (
-    <div className="flex justify-center items-center min-vh-screen py-20 px-4 relative overflow-hidden">
+    <div className="flex justify-center items-center min-h-screen py-20 px-4 relative overflow-hidden text-[var(--foreground)]">
       {/* Background Decor */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[500px] bg-blue-500/5 blur-[120px] rounded-full -z-10" />
       
@@ -45,7 +58,7 @@ export default function SignupPage() {
         className="premium-card w-full max-w-md p-8 sm:p-12 shadow-2xl border-white/5 bg-white/[0.02]"
       >
         <div className="text-center mb-10">
-          <h2 className="text-4xl font-black mb-3 tracking-tighter text-[var(--foreground)] uppercase">Join <span className="text-blue-500">Trao AI</span></h2>
+          <h2 className="text-4xl font-black mb-3 tracking-tighter text-[var(--foreground)] uppercase">Join <span className="text-blue-500">TrippieAI</span></h2>
           <p className="text-slate-500 font-medium">Create an account to start planning your next escape.</p>
         </div>
 
@@ -90,6 +103,25 @@ export default function SignupPage() {
             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <>SIGN UP <ArrowRight size={20} /></>}
           </button>
         </form>
+
+        <div className="mt-8 flex flex-col items-center gap-6">
+          <div className="flex items-center gap-4 w-full text-slate-500">
+            <div className="h-px bg-white/10 flex-1" />
+            <span className="text-[10px] font-black uppercase tracking-widest">OR</span>
+            <div className="h-px bg-white/10 flex-1" />
+          </div>
+          
+          <div className="w-full flex justify-center">
+            <GoogleLogin 
+              onSuccess={handleGoogleSuccess} 
+              onError={() => showNotification('Google login failed', 'error')}
+              theme="filled_black"
+              shape="pill"
+              size="large"
+              width="320"
+            />
+          </div>
+        </div>
 
         <p className="mt-10 text-center text-slate-500 text-xs font-bold uppercase tracking-wide">
           Already a member?{' '}

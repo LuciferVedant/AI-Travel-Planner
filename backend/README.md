@@ -1,6 +1,6 @@
-# Trao AI - Backend
+# TrippieAI - Backend
 
-The API providing the logic and data management for the Trao AI Travel Planner.
+The API providing the logic and data management for the TrippieAI Travel Planner.
 
 ## Tech Stack
 - **Runtime**: Node.js

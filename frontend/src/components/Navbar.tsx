@@ -31,7 +31,7 @@ export default function Navbar() {
       <nav className="fixed top-0 w-full z-50 bg-[var(--nav-bg)] backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center text-[var(--foreground)]">
         <Link href="/" className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MapPin className="text-blue-400" />
-          <span>Trao AI</span>
+          <span>TrippieAI</span>
         </Link>
         <div className="flex items-center gap-6">
           <div className="w-20 h-8 bg-white/5 animate-pulse rounded-full"></div>
@@ -49,7 +49,7 @@ export default function Navbar() {
       >
         <Link href="/" className="flex items-center gap-2 text-2xl font-bold tracking-tight group">
           <MapPin className="text-blue-400 group-hover:scale-110 transition-transform" />
-          <span className="text-gradient">Trao AI</span>
+          <span className="text-gradient">TrippieAI</span>
         </Link>
         
         <div className="flex items-center gap-3 sm:gap-6">
@@ -70,12 +70,12 @@ export default function Navbar() {
                     <span>New Trip</span>
                   </Link>
                   <div className="flex items-center gap-3 border-l border-white/10 pl-6">
-                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+                    <Link href="/profile" className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full border border-white/10 transition-colors">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white">
                         <UserIcon size={12} />
                       </div>
                       <span className="font-bold text-sm">{user.username}</span>
-                    </div>
+                    </Link>
                     <button onClick={() => dispatch(logout())} className="text-slate-400 hover:text-red-400 transition-colors p-2"><LogOut size={20} /></button>
                   </div>
                 </motion.div>
@@ -128,11 +128,14 @@ export default function Navbar() {
                         <UserIcon size={32} />
                       </div>
                       <h3 className="text-xl font-black tracking-tight">{user.username}</h3>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Adventurer</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                        {user.provider === 'google' ? 'Google Account' : 'Adventurer'}
+                      </p>
                     </div>
 
                     <DrawerLink href="/dashboard" icon={<MapPin size={18} />} label="Dashboard" onClick={() => setIsMenuOpen(false)} />
                     <DrawerLink href="/create-trip" icon={<PlusCircle size={18} />} label="New Trip" onClick={() => setIsMenuOpen(false)} highlight />
+                    <DrawerLink href="/profile" icon={<UserIcon size={18} />} label="Profile" onClick={() => setIsMenuOpen(false)} />
                     
                     <button 
                       onClick={() => { dispatch(logout()); setIsMenuOpen(false); }}
