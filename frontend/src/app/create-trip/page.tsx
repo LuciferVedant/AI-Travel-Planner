@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import api from '@/api/apiConfig';
 import { MapPin, Calendar, Compass, DollarSign, Sparkles, X } from 'lucide-react';
+import { useNotification } from '@/components/NotificationProvider';
 
 export default function CreateTrip() {
   const [destination, setDestination] = useState('');
@@ -15,6 +16,7 @@ export default function CreateTrip() {
   const [loading, setLoading] = useState(false);
   const { token } = useAppSelector((state) => state.auth);
   const router = useRouter();
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     if (!token) {
@@ -40,14 +42,14 @@ export default function CreateTrip() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5001/api/itineraries/generate', 
-        { destination, days, interests, budget },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await api.post('/itineraries/generate', 
+        { destination, days, interests, budget }
       );
+      showNotification('Itinerary generated successfully!', 'success');
       router.push(`/itinerary/${res.data._id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Generation failed', err);
-      alert('Failed to generate itinerary. Please try again.');
+      showNotification(err.response?.data?.message || 'Failed to generate itinerary. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

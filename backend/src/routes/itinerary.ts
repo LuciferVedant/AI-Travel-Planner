@@ -2,33 +2,65 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import Itinerary from '../models/Itinerary.js';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const router = express.Router();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-// Mock LLM Generation Function
-const generateMockItinerary = (destination: string, days: number, interests: string[]) => {
-  const itinerary = [];
-  for (let i = 1; i <= days; i++) {
-    itinerary.push({
-      day: i,
-      title: `Day ${i} in ${destination}`,
-      activities: [
-        `Morning: Visit ${interests[0] || 'local landmarks'}`,
-        `Afternoon: Explore ${interests[1] || 'downtown area'}`,
-        `Evening: Dinner at a popular ${destination} restaurant`
-      ]
-    });
+// Real LLM Generation Function
+const generateAIItinerary = async (destination: string, days: number, interests: string[]) => {
+  // Check if API key is still the placeholder
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_openai_api_key')) {
+    throw new Error('OpenAI API Key is missing or invalid. Please update your .env file with a real key.');
   }
-  return itinerary;
-};
 
-// Mock Hotel Suggestions
-const getMockHotels = (destination: string) => {
-  return [
-    { name: `${destination} Grand Hotel`, price: '$200/night', rating: 4.5 },
-    { name: `The ${destination} Inn`, price: '$120/night', rating: 4.0 },
-    { name: `Budget Stay ${destination}`, price: '$60/night', rating: 3.5 }
-  ];
+  const prompt = `Plan a ${days}-day travel itinerary for ${destination} focusing on interests like ${interests.join(', ')}. 
+  Provide a day-by-day plan with specific activities.
+  Also suggest 3 hotels for ${destination} with estimated price and rating.
+  
+  Return the response in strictly this JSON format:
+  {
+    "itineraryData": [
+      {
+        "day": 1,
+        "title": "...",
+        "activities": ["...", "..."]
+      }
+    ],
+    "hotels": [
+      { "name": "...", "price": "...", "rating": 4.5 }
+    ]
+  }`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo-1106",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error('No content returned from AI');
+    
+    return JSON.parse(content);
+  } catch (err: any) {
+    console.error('AI Generation Error:', err);
+    
+    // Provide a cleaner message for common OpenAI errors
+    if (err.status === 401) {
+      throw new Error('Invalid OpenAI API Key. Please check your .env configuration.');
+    }
+    if (err.status === 429) {
+      throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+    }
+    
+    throw new Error('Failed to generate AI itinerary: ' + (err.message || 'Unknown error'));
+  }
 };
 
 // Create (Generate) Itinerary
@@ -41,23 +73,23 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'User ID missing' });
     }
 
-    // In a real scenario, call LLM API here
-    const itineraryData = generateMockItinerary(destination, days, interests);
-    const hotels = getMockHotels(destination);
-
+    // Call real LLM API
+    const aiResponse = await generateAIItinerary(destination, days, interests);
+    
     const newItinerary = new Itinerary({
       userId,
       destination,
       days,
       interests,
       budget,
-      itineraryData,
-      hotels
+      itineraryData: aiResponse.itineraryData,
+      hotels: aiResponse.hotels
     });
 
     await newItinerary.save();
     res.status(201).json(newItinerary);
   } catch (err: any) {
+    console.error('Itinerary Route Error:', err);
     res.status(500).json({ message: err.message });
   }
 });

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ReduxProvider from "@/redux/Provider";
 import Navbar from "@/components/Navbar";
+import { NotificationProvider } from "@/components/NotificationProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,10 +21,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ReduxProvider>
-          <Navbar />
-          <main className="pt-24 min-h-screen">
-            {children}
-          </main>
+          <NotificationProvider>
+            <Navbar />
+            <main className="pt-24 min-h-screen">
+              {children}
+            </main>
+          </NotificationProvider>
         </ReduxProvider>
       </body>
     </html>

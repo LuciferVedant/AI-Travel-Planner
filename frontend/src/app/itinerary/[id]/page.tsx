@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import { useParams, useRouter } from 'next/navigation';
-import axios from 'axios';
+import api from '@/api/apiConfig';
 import { MapPin, Calendar, DollarSign, ArrowLeft, Edit2, Check, X, Hotel, Map as MapIcon } from 'lucide-react';
+import { useNotification } from '@/components/NotificationProvider';
 
 interface DayPlan {
   day: number;
@@ -30,6 +31,7 @@ export default function ItineraryView() {
   const [editedData, setEditedData] = useState<DayPlan[]>([]);
   const { token } = useAppSelector((state) => state.auth);
   const router = useRouter();
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     if (!token) {
@@ -40,9 +42,7 @@ export default function ItineraryView() {
     const fetchItinerary = async () => {
       if (!id) return;
       try {
-        const res = await axios.get(`http://localhost:5001/api/itineraries/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get(`/itineraries/${id}`);
         setItinerary(res.data);
         setEditedData(res.data.itineraryData);
       } catch (err) {
@@ -57,14 +57,13 @@ export default function ItineraryView() {
 
   const handleSave = async () => {
     try {
-      const res = await axios.put(`http://localhost:5001/api/itineraries/${id}`, 
-        { itineraryData: editedData },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.put(`/itineraries/${id}`, { itineraryData: editedData });
       setItinerary(res.data);
       setIsEditing(false);
+      showNotification('Itinerary updated successfully!', 'success');
     } catch (err) {
       console.error('Failed to update itinerary', err);
+      showNotification('Failed to update itinerary. Please try again.', 'error');
     }
   };
 
@@ -74,7 +73,12 @@ export default function ItineraryView() {
     setEditedData(newData);
   };
 
-  if (loading) return <div className="p-12 text-center text-white">Loading...</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
+
   if (!itinerary) return <div className="p-12 text-center text-white">Itinerary not found.</div>;
 
   return (

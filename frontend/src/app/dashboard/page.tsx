@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAppSelector } from '@/redux/hooks';
-import axios from 'axios';
+import api from '@/api/apiConfig';
 import Link from 'next/link';
-import { Calendar, MapPin, DollarSign, Plus, ArrowRight, Compass } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Plus, ArrowRight, Compass, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { ConfirmModal } from '@/components/FeedbackModals';
 
 interface Itinerary {
   _id: string;
@@ -18,30 +19,38 @@ interface Itinerary {
 export default function Dashboard() {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: '' });
   const { token, user } = useAppSelector((state) => state.auth);
   const router = useRouter();
+
+  const fetchItineraries = async () => {
+    try {
+      const res = await api.get('/itineraries');
+      setItineraries(res.data);
+    } catch (err) {
+      console.error('Failed to fetch itineraries', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!token) {
       router.push('/login');
       return;
     }
-
-    const fetchItineraries = async () => {
-      try {
-        const res = await axios.get('http://localhost:5001/api/itineraries', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setItineraries(res.data);
-      } catch (err) {
-        console.error('Failed to fetch itineraries', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchItineraries();
   }, [token, router]);
+
+  const confirmDelete = async () => {
+    const id = deleteModal.id;
+    try {
+      await api.delete(`/itineraries/${id}`);
+      setItineraries(itineraries.filter(item => item._id !== id));
+    } catch (err) {
+      console.error('Failed to delete itinerary', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -80,22 +89,49 @@ export default function Dashboard() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {itineraries.map((trip) => (
-            <TripCard key={trip._id} trip={trip} />
+            <TripCard 
+              key={trip._id} 
+              trip={trip} 
+              onDelete={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteModal({ isOpen: true, id: trip._id });
+              }} 
+            />
           ))}
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+        onConfirm={confirmDelete}
+        title="Delete Itinerary"
+        message="Are you sure you want to delete this itinerary? This action cannot be undone."
+        confirmText="Delete"
+        isDanger={true}
+      />
     </div>
   );
 }
 
-function TripCard({ trip }: { trip: Itinerary }) {
+function TripCard({ trip, onDelete }: { trip: Itinerary; onDelete: (e: React.MouseEvent) => void }) {
   return (
-    <Link href={`/itinerary/${trip._id}`} className="premium-card p-6 block hover:-translate-y-1 transition-all group">
+    <Link href={`/itinerary/${trip._id}`} className="premium-card p-6 block hover:-translate-y-1 transition-all group relative">
       <div className="flex justify-between items-start mb-6">
         <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
           <MapPin size={24} />
         </div>
-        <span className="text-xs text-slate-500 font-medium">{new Date(trip.createdAt).toLocaleDateString()}</span>
+        <div className="flex flex-col items-end">
+          <span className="text-xs text-slate-500 font-medium mb-2">{new Date(trip.createdAt).toLocaleDateString()}</span>
+          <button 
+            onClick={onDelete}
+            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+            title="Delete Itinerary"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
       
       <h3 className="text-2xl font-bold text-white mb-4">{trip.destination}</h3>
