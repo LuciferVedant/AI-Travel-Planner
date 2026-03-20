@@ -3,22 +3,23 @@ import type { Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import Itinerary from '../models/Itinerary.js';
 import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const router = express.Router();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+
+const openai = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes('your_openai') 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) 
+  : null;
+
+const genAI = process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('your_gemini')
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 // Real LLM Generation Function
 const generateAIItinerary = async (destination: string, days: number, interests: string[], budget?: number, currency: string = 'INR') => {
-  // Check if API key is still the placeholder
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_openai_api_key')) {
-    throw new Error('OpenAI API Key is missing or invalid. Please update your .env file with a real key.');
-  }
-
   const budgetInfo = budget ? `within a budget of ${currency} ${budget}` : `with an estimated budget calculation in ${currency}`;
 
   const prompt = `Plan a ${days}-day travel itinerary for ${destination} focusing on interests like ${interests.join(', ')} ${budgetInfo}. 
@@ -42,23 +43,75 @@ const generateAIItinerary = async (destination: string, days: number, interests:
     "estimatedBudget": 1234
   }`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-1106",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    });
+  // Prioritize Gemini as default if key is available
+  if (genAI) {
+    // Attempting a wider range of possible model names to fix the 404
+const modelsToTry = [
+  "gemini-2.5-flash",         // Current stable free-tier favorite
+  "gemini-2.5-flash-lite",    // High-speed, high-quota free option
+  "gemini-3-flash-preview",   // Latest series (experimental/preview)
+  "gemini-2.5-pro"            // Higher reasoning (strict rate limits)
+];
+    let lastError = null;
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('No content returned from AI');
-    
-    return JSON.parse(content);
-  } catch (err: any) {
-    console.error('AI Generation Error:', err);
-    if (err.status === 401) throw new Error('Invalid OpenAI API Key. Please check your .env configuration.');
-    if (err.status === 429) throw new Error('OpenAI API rate limit exceeded. Please try again later.');
-    throw new Error('Failed to generate AI itinerary: ' + (err.message || 'Unknown error'));
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[Gemini] Attempting ${modelName}...`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+        
+        const response = await result.response;
+        let text = response.text();
+        
+        // Clean up markdown code blocks if they exist
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        return JSON.parse(text);
+      } catch (err: any) {
+        console.warn(`[Gemini] ${modelName} failed:`, err.message);
+        lastError = err;
+        
+        // 404 error? Try next model
+        if (err.message?.includes('404') || err.message?.includes('not found')) {
+          continue;
+        }
+        
+        // Safety Break for 401 or non-retryable errors
+        if (err.message?.includes('401') || err.message?.includes('API key')) {
+           console.error('[Gemini] Invalid API Key detected.');
+           break;
+        }
+      }
+    }
+  } 
+  
+  // Fallback to OpenAI
+  if (openai) {
+    try {
+      console.log('[AI] Falling back to OpenAI (gpt-3.5-turbo)...');
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-1106",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error('No content returned from OpenAI');
+      
+      return JSON.parse(content);
+    } catch (err: any) {
+      console.error('[OpenAI] Generation Error:', err.message);
+      if (err.status === 401) throw new Error('Invalid OpenAI API Key.');
+      throw new Error('Failed to generate with OpenAI: ' + (err.message || 'Unknown error'));
+    }
   }
+
+  throw new Error('No valid AI API Key found or all LLMs failed. Please check your .env file or try a different key.');
 };
 
 // Create (Generate) Itinerary
