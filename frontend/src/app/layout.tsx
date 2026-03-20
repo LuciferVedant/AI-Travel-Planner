@@ -4,6 +4,7 @@ import "./globals.css";
 import ReduxProvider from "@/redux/Provider";
 import Navbar from "@/components/Navbar";
 import { NotificationProvider } from "@/components/NotificationProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,15 +19,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ReduxProvider>
-          <NotificationProvider>
-            <Navbar />
-            <main className="pt-24 min-h-screen">
-              {children}
-            </main>
-          </NotificationProvider>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            <NotificationProvider>
+              <Navbar />
+              <main className="pt-24 min-h-screen">
+                {children}
+              </main>
+            </NotificationProvider>
+          </ThemeProvider>
         </ReduxProvider>
       </body>
     </html>

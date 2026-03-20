@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 export interface IItinerary extends mongoose.Document {
   userId: mongoose.Types.ObjectId;
   destination: string;
+  departureLocation: string;
   days: number;
   interests: string[];
   guests: {
@@ -22,6 +23,7 @@ export interface IItinerary extends mongoose.Document {
 const ItinerarySchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   destination: { type: String, required: true },
+  departureLocation: { type: String, required: true },
   days: { type: Number, required: true },
   interests: { type: [String], default: [] },
   guests: {

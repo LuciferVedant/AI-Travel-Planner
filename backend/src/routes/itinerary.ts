@@ -20,7 +20,8 @@ const genAI = process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes
 
 // Real LLM Generation Function
 const generateAIItinerary = async (
-  destination: string, 
+  destination: string,
+  departureLocation: string,
   days: number, 
   interests: string[], 
   guests: { adults: number; children: number; pets: number },
@@ -30,11 +31,14 @@ const generateAIItinerary = async (
   const budgetInfo = budget ? `within a budget of ${currency} ${budget}` : `with an estimated budget calculation in ${currency}`;
   const guestInfo = `${guests.adults} adults, ${guests.children} children, and ${guests.pets} pets`;
 
-  const prompt = `Plan a ${days}-day travel itinerary for ${destination} for ${guestInfo}, focusing on interests like ${interests.join(', ')} ${budgetInfo}. 
-  Provide a day-by-day plan with specific activities suitable for ${guestInfo}.
-  Also suggest 3 hotels for ${destination} that can accommodate ${guestInfo} with estimated price (in ${currency}) and rating.
+  const prompt = `Plan a ${days}-day travel itinerary for a trip to ${destination} starting from ${departureLocation}. 
+  The squad consists of ${guestInfo}. Our interests are: ${interests.join(', ')}.
+  The plan should be ${budgetInfo}.
   
-  If the budget was not provided, please calculate a realistic estimated budget for this trip.
+  Provide a day-by-day plan with specific activities suitable for this group. Since we are starting from ${departureLocation}, please consider travel time/logistics for the first and last day if relevant.
+  Also suggest 3 hotels in ${destination} that can accommodate ${guestInfo} with estimated price (in ${currency}) and rating.
+  
+  If the budget was not provided, please calculate a realistic estimated budget for this entire trip (in ${currency}) (including local travel, food, and activities).
   
   Return the response in strictly this JSON format:
   {
@@ -109,19 +113,30 @@ const modelsToTry = [
 // Create (Generate) Itinerary
 router.post('/generate', authenticate, async (req: Request, res: Response) => {
   try {
-    const { destination, days, interests, budget, currency = 'INR', guests = { adults: 1, children: 0, pets: 0 } } = req.body;
+    const { 
+      destination, 
+      departureLocation, 
+      days, 
+      interests, 
+      budget, 
+      currency = 'INR', 
+      guests = { adults: 1, children: 0, pets: 0 } 
+    } = req.body;
+    
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: 'User ID missing' });
+    if (!departureLocation) return res.status(400).json({ message: 'Departure location is required' });
 
     // Call real LLM API
-    const aiResponse = await generateAIItinerary(destination, days, interests, guests, budget, currency);
+    const aiResponse = await generateAIItinerary(destination, departureLocation, days, interests, guests, budget, currency);
     
     const finalBudget = budget || aiResponse.estimatedBudget;
 
     const newItinerary = new Itinerary({
       userId,
       destination,
+      departureLocation,
       days,
       interests,
       guests,

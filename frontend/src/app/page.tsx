@@ -2,74 +2,133 @@
 
 import Link from 'next/link';
 import { useAppSelector } from '@/redux/hooks';
-import { Sparkles, Compass, Shield, Zap } from 'lucide-react';
+import { Sparkles, Compass, Shield, Zap, ArrowRight, MapPin } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function LandingPage() {
   const { user } = useAppSelector((state) => state.auth);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { staggerChildren: 0.2 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 }
+  };
+
   return (
     <div className="relative isolate overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-blue-500/10 blur-[120px] rounded-full -z-10" />
+      
       {/* Hero Section */}
-      <div className="px-6 py-24 sm:py-32 lg:px-8 text-center">
-        <div className="mx-auto max-w-2xl">
-          <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-7xl mb-6">
-            Travel Smarter with <span className="text-gradient">Trao AI</span>
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="px-6 py-20 sm:py-32 lg:px-8 text-center"
+      >
+        <motion.div variants={itemVariants} className="mx-auto max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-8">
+            <Sparkles size={14} />
+            <span>Next Gen Travel Planning</span>
+          </div>
+          
+          <h1 className="text-5xl font-black tracking-tight sm:text-7xl lg:text-8xl mb-8 leading-[0.9] text-[var(--foreground)]">
+            Explore the World <br/> 
+            <span className="text-gradient">with Trao AI</span>
           </h1>
-          <p className="text-lg leading-8 text-slate-400 mb-10">
-            Generate complete, personalized travel itineraries in seconds using our advanced AI agent. 
-            From budget planning to day-by-day activities, we've got you covered.
+          
+          <p className="text-lg sm:text-xl leading-relaxed text-slate-500 dark:text-slate-400 mb-12 max-w-2xl mx-auto font-medium">
+            Stop researching, start traveling. Our AI agent creates personalized, 
+            high-end itineraries tailored to your unique vibe and budget in seconds.
           </p>
-          <div className="flex items-center justify-center gap-x-6">
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {user ? (
-              <Link href="/dashboard" className="btn-primary">
+              <Link href="/dashboard" className="btn-primary w-full sm:w-auto px-10 py-4 text-lg">
                 Go to Dashboard
               </Link>
             ) : (
               <>
-                <Link href="/signup" className="btn-primary">
-                  Get Started for Free
+                <Link href="/signup" className="btn-primary w-full sm:w-auto px-10 py-4 text-lg flex items-center justify-center gap-2">
+                  <span>Start for Free</span>
+                  <ArrowRight size={20} />
                 </Link>
-                <Link href="/login" className="text-sm font-semibold leading-6 text-white hover:text-blue-400 transition-colors">
-                  Live Demo <span aria-hidden="true">→</span>
+                <Link href="/login" className="px-10 py-4 font-bold text-[var(--foreground)] hover:text-blue-500 transition-colors">
+                  Sign In
                 </Link>
               </>
             )}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Features Section */}
-      <div className="mx-auto max-w-7xl px-6 lg:px-8 py-24 border-t border-white/5">
-        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div 
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="mx-auto max-w-7xl px-6 lg:px-8 py-24 border-t border-white/5"
+      >
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-black text-[var(--foreground)] uppercase tracking-tight">Features built for <span className="text-blue-500">Adventures</span></h2>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <FeatureCard 
             icon={<Sparkles className="text-purple-400" />}
-            title="AI-Powered"
-            description="Our advanced LLM agent crafts itineraries based on your unique interests and constraints."
+            title="AI Brain"
+            description="Powered by Gemini & GPTs to analyze millions of travel spots for you."
+            delay={0.1}
           />
           <FeatureCard 
             icon={<Compass className="text-blue-400" />}
-            title="Personalized"
-            description="Every trip is unique. Tell us your budget, duration, and interests, and we'll do the rest."
+            title="Hyper-Tailored"
+            description="Tell us your mood, group size, and budget. We'll handle the logistics."
+            delay={0.2}
           />
           <FeatureCard 
             icon={<Zap className="text-yellow-400" />}
-            title="Instant Results"
-            description="No more spending hours researching. Get a full travel plan in less than 30 seconds."
+            title="Instant Export"
+            description="Download your dream itinerary as a PDF and share it with your squad."
+            delay={0.3}
           />
         </div>
+      </motion.div>
+
+      {/* Footer Info */}
+      <div className="py-20 text-center border-t border-white/5 opacity-50">
+        <div className="flex items-center justify-center gap-2 text-[var(--foreground)] font-bold mb-4">
+          <MapPin size={20} className="text-blue-500" />
+          <span>Trao AI</span>
+        </div>
+        <p className="text-xs text-slate-500">© 2026 Trao AI Travel Labs. All rights reserved.</p>
       </div>
     </div>
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string, description: string }) {
+function FeatureCard({ icon, title, description, delay }: { icon: React.ReactNode; title: string, description: string, delay: number }) {
   return (
-    <div className="premium-card p-8 hover:bg-white/[0.05] transition-all">
-      <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mb-6 border border-white/10 shadow-inner">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay }}
+      className="premium-card p-10 hover:border-blue-500/30 transition-all group"
+    >
+      <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-8 border border-white/10 shadow-inner group-hover:scale-110 transition-transform">
         {icon}
       </div>
-      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-      <p className="text-slate-400 leading-relaxed">{description}</p>
-    </div>
+      <h3 className="text-2xl font-black text-[var(--foreground)] mb-4 tracking-tight uppercase">{title}</h3>
+      <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">{description}</p>
+    </motion.div>
   );
 }
