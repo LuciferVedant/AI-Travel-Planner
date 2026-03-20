@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/api/apiConfig';
-import { MapPin, Calendar, DollarSign, ArrowLeft, Edit2, Check, X, Hotel, Map as MapIcon } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, ArrowLeft, Edit2, Check, X, Hotel, Map as MapIcon, Sparkles } from 'lucide-react';
 import { useNotification } from '@/components/NotificationProvider';
 
 interface DayPlan {
@@ -19,9 +19,21 @@ interface Itinerary {
   days: number;
   interests: string[];
   budget: number;
+  currency: string;
   itineraryData: DayPlan[];
   hotels: { name: string; price: string; rating: number }[];
 }
+
+const getCurrencySymbol = (code: string) => {
+  const symbols: Record<string, string> = {
+    'INR': '₹',
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'JPY': '¥'
+  };
+  return symbols[code] || code;
+};
 
 export default function ItineraryView() {
   const { id } = useParams();
@@ -100,8 +112,9 @@ export default function ItineraryView() {
             <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
               <Calendar size={14} /> {itinerary.days} Days
             </span>
-            <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-              <DollarSign size={14} /> Budget: ${itinerary.budget}
+            <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10 text-blue-300">
+              <Sparkles size={14} className="text-blue-400" /> 
+              Budget: {getCurrencySymbol(itinerary.currency)} {itinerary.budget}
             </span>
           </div>
         </div>
@@ -111,13 +124,13 @@ export default function ItineraryView() {
             <>
               <button 
                 onClick={() => { setIsEditing(false); setEditedData(itinerary.itineraryData); }} 
-                className="bg-white/5 hover:bg-white/10 text-white px-6 py-2.5 rounded-full flex items-center gap-2 border border-white/10 transition-all"
+                className="bg-white/5 hover:bg-white/10 text-white px-6 py-2.5 rounded-full flex items-center gap-2 border border-white/10 transition-all font-medium"
               >
                 <X size={18} /> Cancel
               </button>
               <button 
                 onClick={handleSave} 
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg shadow-green-500/20 transition-all"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg shadow-green-500/20 transition-all font-medium"
               >
                 <Check size={18} /> Save Changes
               </button>
@@ -189,7 +202,7 @@ export default function ItineraryView() {
                 <div key={hIdx} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/[0.08] transition-all">
                   <div className="font-bold text-white mb-1">{hotel.name}</div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">{hotel.price}</span>
+                    <span className="text-slate-400 font-medium">{hotel.price}</span>
                     <span className="text-yellow-400 font-medium">★ {hotel.rating}</span>
                   </div>
                 </div>

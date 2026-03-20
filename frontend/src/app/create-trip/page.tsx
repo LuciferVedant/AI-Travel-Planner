@@ -4,16 +4,29 @@ import { useState, useEffect } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import { useRouter } from 'next/navigation';
 import api from '@/api/apiConfig';
-import { MapPin, Calendar, Compass, DollarSign, Sparkles, X } from 'lucide-react';
+import { MapPin, Calendar, Compass, DollarSign, Sparkles, X, AlertCircle } from 'lucide-react';
 import { useNotification } from '@/components/NotificationProvider';
+
+const CURRENCIES = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+];
 
 export default function CreateTrip() {
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState(3);
-  const [budget, setBudget] = useState(1000);
+  const [budget, setBudget] = useState<number | ''>('');
+  const [currency, setCurrency] = useState('INR');
   const [interestInput, setInterestInput] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Validation Errors
+  const [errors, setErrors] = useState<{ destination?: string; days?: string }>({});
+
   const { token } = useAppSelector((state) => state.auth);
   const router = useRouter();
   const { showNotification } = useNotification();
@@ -23,6 +36,15 @@ export default function CreateTrip() {
       router.push('/login');
     }
   }, [token, router]);
+
+  const validate = () => {
+    const newErrors: { destination?: string; days?: string } = {};
+    if (!destination.trim()) newErrors.destination = 'Destination is required';
+    if (!days || days < 1) newErrors.days = 'Duration must be at least 1 day';
+    if (days > 14) newErrors.days = 'Maximum duration is 14 days';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleAddInterest = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && interestInput.trim()) {
@@ -40,11 +62,19 @@ export default function CreateTrip() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+    
     setLoading(true);
     try {
-      const res = await api.post('/itineraries/generate', 
-        { destination, days, interests, budget }
-      );
+      const payload = { 
+        destination, 
+        days, 
+        interests, 
+        budget: budget === '' ? undefined : budget,
+        currency 
+      };
+      
+      const res = await api.post('/itineraries/generate', payload);
       showNotification('Itinerary generated successfully!', 'success');
       router.push(`/itinerary/${res.data._id}`);
     } catch (err: any) {
@@ -75,54 +105,84 @@ export default function CreateTrip() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
               <MapPin size={16} className="text-blue-400" />
-              <span>Destination</span>
+              <span>Destination *</span>
             </label>
             <input 
               type="text" 
-              className="glass-input w-full"
+              className={`glass-input w-full ${errors.destination ? 'border-red-500/50 bg-red-500/5' : ''}`}
               placeholder="e.g. Paris, Tokyo, Bali"
               value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              required
+              onChange={(e) => {
+                setDestination(e.target.value);
+                if (errors.destination) setErrors({ ...errors, destination: undefined });
+              }}
             />
+            {errors.destination && (
+              <div className="flex items-center gap-1.5 text-red-400 text-xs mt-1 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle size={12} />
+                <span>{errors.destination}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
               <Calendar size={16} className="text-blue-400" />
-              <span>Number of Days</span>
+              <span>Number of Days *</span>
+            </label>
+            <input 
+              type="number" 
+              className={`glass-input w-full ${errors.days ? 'border-red-500/50 bg-red-500/5' : ''}`}
+              min="1"
+              max="14"
+              value={days}
+              onChange={(e) => {
+                setDays(parseInt(e.target.value) || 0);
+                if (errors.days) setErrors({ ...errors, days: undefined });
+              }}
+            />
+            {errors.days && (
+              <div className="flex items-center gap-1.5 text-red-400 text-xs mt-1 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle size={12} />
+                <span>{errors.days}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-2 space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+              <DollarSign size={16} className="text-blue-400" />
+              <span>Budget (Optional)</span>
             </label>
             <input 
               type="number" 
               className="glass-input w-full"
-              min="1"
-              max="14"
-              value={days}
-              onChange={(e) => setDays(parseInt(e.target.value))}
-              required
+              placeholder="Leave empty for AI to estimate"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value === '' ? '' : parseInt(e.target.value))}
             />
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-            <DollarSign size={16} className="text-blue-400" />
-            <span>Approximate Budget ($)</span>
-          </label>
-          <input 
-            type="number" 
-            className="glass-input w-full"
-            placeholder="Total budget for the trip"
-            value={budget}
-            onChange={(e) => setBudget(parseInt(e.target.value))}
-            required
-          />
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-300">Currency</label>
+            <select 
+              className="glass-input w-full appearance-none cursor-pointer"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {CURRENCIES.map(c => (
+                <option key={c.code} value={c.code} className="bg-slate-900">{c.code} ({c.symbol})</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
             <Compass size={16} className="text-blue-400" />
-            <span>What are you interested in?</span>
+            <span>Interests (Optional)</span>
           </label>
           <input 
             type="text" 
@@ -137,7 +197,7 @@ export default function CreateTrip() {
             {interests.map((interest) => (
               <span key={interest} className="flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1.5 rounded-full text-sm border border-blue-500/30">
                 {interest}
-                <button type="button" onClick={() => removeInterest(interest)} className="hover:text-white">
+                <button type="button" onClick={() => removeInterest(interest)} className="hover:text-white transition-colors">
                   <X size={14} />
                 </button>
               </span>

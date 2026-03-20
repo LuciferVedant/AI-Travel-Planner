@@ -13,15 +13,19 @@ const openai = new OpenAI({
 });
 
 // Real LLM Generation Function
-const generateAIItinerary = async (destination: string, days: number, interests: string[]) => {
+const generateAIItinerary = async (destination: string, days: number, interests: string[], budget?: number, currency: string = 'INR') => {
   // Check if API key is still the placeholder
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_openai_api_key')) {
     throw new Error('OpenAI API Key is missing or invalid. Please update your .env file with a real key.');
   }
 
-  const prompt = `Plan a ${days}-day travel itinerary for ${destination} focusing on interests like ${interests.join(', ')}. 
+  const budgetInfo = budget ? `within a budget of ${currency} ${budget}` : `with an estimated budget calculation in ${currency}`;
+
+  const prompt = `Plan a ${days}-day travel itinerary for ${destination} focusing on interests like ${interests.join(', ')} ${budgetInfo}. 
   Provide a day-by-day plan with specific activities.
-  Also suggest 3 hotels for ${destination} with estimated price and rating.
+  Also suggest 3 hotels for ${destination} with estimated price (in ${currency}) and rating.
+  
+  If the budget was not provided, please calculate a realistic estimated budget for this trip.
   
   Return the response in strictly this JSON format:
   {
@@ -34,7 +38,8 @@ const generateAIItinerary = async (destination: string, days: number, interests:
     ],
     "hotels": [
       { "name": "...", "price": "...", "rating": 4.5 }
-    ]
+    ],
+    "estimatedBudget": 1234
   }`;
 
   try {
@@ -50,15 +55,8 @@ const generateAIItinerary = async (destination: string, days: number, interests:
     return JSON.parse(content);
   } catch (err: any) {
     console.error('AI Generation Error:', err);
-    
-    // Provide a cleaner message for common OpenAI errors
-    if (err.status === 401) {
-      throw new Error('Invalid OpenAI API Key. Please check your .env configuration.');
-    }
-    if (err.status === 429) {
-      throw new Error('OpenAI API rate limit exceeded. Please try again later.');
-    }
-    
+    if (err.status === 401) throw new Error('Invalid OpenAI API Key. Please check your .env configuration.');
+    if (err.status === 429) throw new Error('OpenAI API rate limit exceeded. Please try again later.');
     throw new Error('Failed to generate AI itinerary: ' + (err.message || 'Unknown error'));
   }
 };
@@ -66,7 +64,7 @@ const generateAIItinerary = async (destination: string, days: number, interests:
 // Create (Generate) Itinerary
 router.post('/generate', authenticate, async (req: Request, res: Response) => {
   try {
-    const { destination, days, interests, budget } = req.body;
+    const { destination, days, interests, budget, currency = 'INR' } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -74,14 +72,17 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
     }
 
     // Call real LLM API
-    const aiResponse = await generateAIItinerary(destination, days, interests);
+    const aiResponse = await generateAIItinerary(destination, days, interests, budget, currency);
     
+    const finalBudget = budget || aiResponse.estimatedBudget;
+
     const newItinerary = new Itinerary({
       userId,
       destination,
       days,
       interests,
-      budget,
+      budget: finalBudget,
+      currency,
       itineraryData: aiResponse.itineraryData,
       hotels: aiResponse.hotels
     });

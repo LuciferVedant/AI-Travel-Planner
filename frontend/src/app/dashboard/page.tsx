@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import api from '@/api/apiConfig';
 import Link from 'next/link';
-import { Calendar, MapPin, DollarSign, Plus, ArrowRight, Compass, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Plus, ArrowRight, Compass, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/FeedbackModals';
 
@@ -13,8 +13,20 @@ interface Itinerary {
   destination: string;
   days: number;
   budget: number;
+  currency: string;
   createdAt: string;
 }
+
+const getCurrencySymbol = (code: string) => {
+  const symbols: Record<string, string> = {
+    'INR': '₹',
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'JPY': '¥'
+  };
+  return symbols[code] || code;
+};
 
 export default function Dashboard() {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
@@ -142,8 +154,8 @@ function TripCard({ trip, onDelete }: { trip: Itinerary; onDelete: (e: React.Mou
           <span>{trip.days} Days</span>
         </div>
         <div className="flex items-center gap-1">
-          <DollarSign size={14} className="text-slate-500" />
-          <span>Budget: ${trip.budget}</span>
+          <span className="text-blue-400 font-semibold">{getCurrencySymbol(trip.currency)}</span>
+          <span className="font-medium text-slate-300">Budget: {trip.budget}</span>
         </div>
       </div>
       
