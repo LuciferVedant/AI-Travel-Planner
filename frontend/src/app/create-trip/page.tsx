@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAppSelector } from '@/redux/hooks';
 import { useRouter } from 'next/navigation';
 import api from '@/api/apiConfig';
-import { MapPin, Calendar, Compass, DollarSign, Sparkles, X, AlertCircle } from 'lucide-react';
+import { MapPin, Calendar, Compass, DollarSign, Sparkles, X, AlertCircle, Users, Baby, Dog, Plus, Minus } from 'lucide-react';
 import { useNotification } from '@/components/NotificationProvider';
 
 const CURRENCIES = [
@@ -22,6 +22,7 @@ export default function CreateTrip() {
   const [currency, setCurrency] = useState('INR');
   const [interestInput, setInterestInput] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
+  const [guests, setGuests] = useState({ adults: 1, children: 0, pets: 0 });
   const [loading, setLoading] = useState(false);
   
   // Validation Errors
@@ -60,6 +61,13 @@ export default function CreateTrip() {
     setInterests(interests.filter(i => i !== interest));
   };
 
+  const updateGuest = (type: 'adults' | 'children' | 'pets', delta: number) => {
+    setGuests(prev => ({
+      ...prev,
+      [type]: Math.max(type === 'adults' ? 1 : 0, prev[type] + delta)
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -70,6 +78,7 @@ export default function CreateTrip() {
         destination, 
         days, 
         interests, 
+        guests,
         budget: budget === '' ? undefined : budget,
         currency 
       };
@@ -86,21 +95,22 @@ export default function CreateTrip() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
+    <div className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-12 text-center">
-        <h1 className="text-4xl font-bold text-white mb-4">Start Your Next <span className="text-gradient">Adventure</span></h1>
-        <p className="text-slate-400">Tell us where you want to go, and our AI will plan everything for you.</p>
+        <h1 className="text-4xl font-bold text-white mb-4">Plan Your <span className="text-gradient">Dream Trip</span></h1>
+        <p className="text-slate-400">Personalized itineraries for you and your companions.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="premium-card p-10 space-y-8 shadow-2xl relative overflow-hidden">
+      <form onSubmit={handleSubmit} className="premium-card p-10 space-y-10 shadow-2xl relative overflow-hidden">
         {loading && (
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
             <p className="text-xl font-bold text-white mb-2">Crafting Your Perfect Trip...</p>
-            <p className="text-slate-400">Our AI agent is exploring {destination || 'the world'} for you.</p>
+            <p className="text-slate-400">Our AI is designing something special for your group.</p>
           </div>
         )}
 
+        {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
@@ -128,7 +138,7 @@ export default function CreateTrip() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
               <Calendar size={16} className="text-blue-400" />
-              <span>Number of Days *</span>
+              <span>Duration (Days) *</span>
             </label>
             <input 
               type="number" 
@@ -150,6 +160,41 @@ export default function CreateTrip() {
           </div>
         </div>
 
+        {/* Guests Selection */}
+        <div className="space-y-4">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+            <Users size={16} className="text-blue-400" />
+            <span>Who is travelling?</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Counter 
+              label="Adults" 
+              sub="Age 13+" 
+              icon={<Users size={18} />} 
+              value={guests.adults} 
+              onDec={() => updateGuest('adults', -1)} 
+              onInc={() => updateGuest('adults', 1)} 
+            />
+            <Counter 
+              label="Children" 
+              sub="Age 2-12" 
+              icon={<Baby size={18} />} 
+              value={guests.children} 
+              onDec={() => updateGuest('children', -1)} 
+              onInc={() => updateGuest('children', 1)} 
+            />
+            <Counter 
+              label="Pets" 
+              sub="Tail waggers" 
+              icon={<Dog size={18} />} 
+              value={guests.pets} 
+              onDec={() => updateGuest('pets', -1)} 
+              onInc={() => updateGuest('pets', 1)} 
+            />
+          </div>
+        </div>
+
+        {/* Budget & Currency */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
@@ -159,7 +204,7 @@ export default function CreateTrip() {
             <input 
               type="number" 
               className="glass-input w-full"
-              placeholder="Leave empty for AI to estimate"
+              placeholder="Leave empty for AI estimate"
               value={budget}
               onChange={(e) => setBudget(e.target.value === '' ? '' : parseInt(e.target.value))}
             />
@@ -179,6 +224,7 @@ export default function CreateTrip() {
           </div>
         </div>
 
+        {/* Interests */}
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
             <Compass size={16} className="text-blue-400" />
@@ -187,7 +233,7 @@ export default function CreateTrip() {
           <input 
             type="text" 
             className="glass-input w-full"
-            placeholder="Type and press Enter (e.g. History, Food, Hiking)"
+            placeholder="Type and press Enter"
             value={interestInput}
             onChange={(e) => setInterestInput(e.target.value)}
             onKeyDown={handleAddInterest}
@@ -210,6 +256,39 @@ export default function CreateTrip() {
           <span>Generate Itinerary</span>
         </button>
       </form>
+    </div>
+  );
+}
+
+function Counter({ label, sub, icon, value, onDec, onInc }: any) {
+  return (
+    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-blue-500/10 rounded-xl text-blue-400">
+          {icon}
+        </div>
+        <div>
+          <div className="text-white font-semibold text-sm">{label}</div>
+          <div className="text-slate-500 text-[10px] uppercase tracking-wider">{sub}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <button 
+          type="button" 
+          onClick={onDec}
+          className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-all"
+        >
+          <Minus size={14} />
+        </button>
+        <span className="text-white font-bold w-4 text-center">{value}</span>
+        <button 
+          type="button" 
+          onClick={onInc}
+          className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-all"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
     </div>
   );
 }

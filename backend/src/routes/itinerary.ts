@@ -19,12 +19,20 @@ const genAI = process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes
   : null;
 
 // Real LLM Generation Function
-const generateAIItinerary = async (destination: string, days: number, interests: string[], budget?: number, currency: string = 'INR') => {
+const generateAIItinerary = async (
+  destination: string, 
+  days: number, 
+  interests: string[], 
+  guests: { adults: number; children: number; pets: number },
+  budget?: number, 
+  currency: string = 'INR'
+) => {
   const budgetInfo = budget ? `within a budget of ${currency} ${budget}` : `with an estimated budget calculation in ${currency}`;
+  const guestInfo = `${guests.adults} adults, ${guests.children} children, and ${guests.pets} pets`;
 
-  const prompt = `Plan a ${days}-day travel itinerary for ${destination} focusing on interests like ${interests.join(', ')} ${budgetInfo}. 
-  Provide a day-by-day plan with specific activities.
-  Also suggest 3 hotels for ${destination} with estimated price (in ${currency}) and rating.
+  const prompt = `Plan a ${days}-day travel itinerary for ${destination} for ${guestInfo}, focusing on interests like ${interests.join(', ')} ${budgetInfo}. 
+  Provide a day-by-day plan with specific activities suitable for ${guestInfo}.
+  Also suggest 3 hotels for ${destination} that can accommodate ${guestInfo} with estimated price (in ${currency}) and rating.
   
   If the budget was not provided, please calculate a realistic estimated budget for this trip.
   
@@ -45,7 +53,6 @@ const generateAIItinerary = async (destination: string, days: number, interests:
 
   // Prioritize Gemini as default if key is available
   if (genAI) {
-    // Attempting a wider range of possible model names to fix the 404
 const modelsToTry = [
   "gemini-2.5-flash",         // Current stable free-tier favorite
   "gemini-2.5-flash-lite",    // High-speed, high-quota free option
@@ -67,25 +74,13 @@ const modelsToTry = [
         
         const response = await result.response;
         let text = response.text();
-        
-        // Clean up markdown code blocks if they exist
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        
         return JSON.parse(text);
       } catch (err: any) {
         console.warn(`[Gemini] ${modelName} failed:`, err.message);
         lastError = err;
-        
-        // 404 error? Try next model
-        if (err.message?.includes('404') || err.message?.includes('not found')) {
-          continue;
-        }
-        
-        // Safety Break for 401 or non-retryable errors
-        if (err.message?.includes('401') || err.message?.includes('API key')) {
-           console.error('[Gemini] Invalid API Key detected.');
-           break;
-        }
+        if (err.message?.includes('404') || err.message?.includes('not found')) continue;
+        break;
       }
     }
   } 
@@ -93,39 +88,34 @@ const modelsToTry = [
   // Fallback to OpenAI
   if (openai) {
     try {
-      console.log('[AI] Falling back to OpenAI (gpt-3.5-turbo)...');
+      console.log('[AI] Falling back to OpenAI...');
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo-1106",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
       });
-
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error('No content returned from OpenAI');
-      
       return JSON.parse(content);
     } catch (err: any) {
-      console.error('[OpenAI] Generation Error:', err.message);
-      if (err.status === 401) throw new Error('Invalid OpenAI API Key.');
-      throw new Error('Failed to generate with OpenAI: ' + (err.message || 'Unknown error'));
+      console.error('[OpenAI] Error:', err.message);
+      throw new Error('Failed to generate with any LLM.');
     }
   }
 
-  throw new Error('No valid AI API Key found or all LLMs failed. Please check your .env file or try a different key.');
+  throw new Error('No valid AI API Key found.');
 };
 
 // Create (Generate) Itinerary
 router.post('/generate', authenticate, async (req: Request, res: Response) => {
   try {
-    const { destination, days, interests, budget, currency = 'INR' } = req.body;
+    const { destination, days, interests, budget, currency = 'INR', guests = { adults: 1, children: 0, pets: 0 } } = req.body;
     const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({ message: 'User ID missing' });
-    }
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
 
     // Call real LLM API
-    const aiResponse = await generateAIItinerary(destination, days, interests, budget, currency);
+    const aiResponse = await generateAIItinerary(destination, days, interests, guests, budget, currency);
     
     const finalBudget = budget || aiResponse.estimatedBudget;
 
@@ -134,6 +124,7 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       destination,
       days,
       interests,
+      guests,
       budget: finalBudget,
       currency,
       itineraryData: aiResponse.itineraryData,
@@ -152,9 +143,7 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'User ID missing' });
-    }
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
     const itineraries = await Itinerary.find({ userId }).sort({ createdAt: -1 });
     res.json(itineraries);
   } catch (err: any) {
@@ -166,9 +155,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'User ID missing' });
-    }
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
     const itinerary = await Itinerary.findOne({ _id: req.params.id, userId });
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
     res.json(itinerary);
@@ -181,9 +168,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
 router.put('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'User ID missing' });
-    }
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
     const { itineraryData } = req.body;
     const itinerary = await Itinerary.findOneAndUpdate(
       { _id: req.params.id, userId },
@@ -201,9 +186,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
 router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'User ID missing' });
-    }
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
     const itinerary = await Itinerary.findOneAndDelete({ _id: req.params.id, userId });
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
     res.json({ message: 'Itinerary deleted' });

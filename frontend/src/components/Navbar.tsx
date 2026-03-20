@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import { logout } from '@/redux/slices/authSlice';
@@ -8,6 +9,26 @@ import { MapPin, LogOut, User as UserIcon, PlusCircle } from 'lucide-react';
 export default function Navbar() {
   const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
+  const [mounted, setMounted] = useState(false);
+
+  // Fix hydration mismatch by only rendering user-dependent UI after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <nav className="fixed top-0 w-full z-50 bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4 flex justify-between items-center text-white">
+        <Link href="/" className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <MapPin className="text-blue-400" />
+          <span>Trao AI</span>
+        </Link>
+        <div className="flex items-center gap-6">
+          <div className="w-20 h-8 bg-white/5 animate-pulse rounded-full"></div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4 flex justify-between items-center text-white">

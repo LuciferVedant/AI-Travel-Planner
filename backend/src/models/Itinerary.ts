@@ -6,6 +6,11 @@ export interface IItinerary extends mongoose.Document {
   destination: string;
   days: number;
   interests: string[];
+  guests: {
+    adults: number;
+    children: number;
+    pets: number;
+  };
   budget?: number;
   currency: string;
   itineraryData: any; // Structured JSON from LLM
@@ -19,6 +24,11 @@ const ItinerarySchema = new Schema({
   destination: { type: String, required: true },
   days: { type: Number, required: true },
   interests: { type: [String], default: [] },
+  guests: {
+    adults: { type: Number, default: 1 },
+    children: { type: Number, default: 0 },
+    pets: { type: Number, default: 0 }
+  },
   budget: { type: Number },
   currency: { type: String, default: 'INR' },
   itineraryData: { type: Schema.Types.Mixed, required: true },
