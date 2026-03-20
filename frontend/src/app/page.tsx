@@ -44,7 +44,7 @@ export default function LandingPage() {
             WITH <span className="text-gradient">TrippieAI</span>
           </h1>
           
-          <p className="text-lg sm:text-xl leading-relaxed text-slate-500 dark:text-slate-400 mb-12 max-w-2xl mx-auto font-medium">
+          <p className="text-lg sm:text-xl leading-relaxed text-slate-500 dark:text-slate-400 mb-12 max-w-2xl mx-auto font-medium mt-6">
             Stop researching, start traveling. Our AI agent creates personalized, 
             high-end itineraries tailored to your unique vibe and budget in seconds.
           </p>
