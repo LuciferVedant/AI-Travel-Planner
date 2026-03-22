@@ -7,7 +7,7 @@ import api from '@/api/apiConfig';
 import { 
   MapPin, Calendar, DollarSign, ArrowLeft, Edit2, 
   Check, X, Hotel, Map as MapIcon, Sparkles, 
-  Users, Baby, Dog, Compass, Download, Loader2 
+  Users, Baby, Dog, Compass, Download, Loader2, RotateCcw
 } from 'lucide-react';
 import { useNotification } from '@/components/NotificationProvider';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -64,6 +64,9 @@ export default function ItineraryView() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<DayPlan[]>([]);
+  const [isRegenerating, setIsRegenerating] = useState<number | null>(null); // Day number being regenerated
+  const [regenQuery, setRegenQuery] = useState('');
+  const [showRegenModal, setShowRegenModal] = useState<number | null>(null);
   const { token } = useAppSelector((state) => state.auth);
   const router = useRouter();
   const { showNotification } = useNotification();
@@ -113,6 +116,33 @@ export default function ItineraryView() {
         newData[dayIndex].activities[activityIndex] = { ...activity, name: value };
       }
       setEditedData(newData);
+    }
+  };
+  
+  const handleRegenerateDay = async (dayNum: number) => {
+    if (!regenQuery.trim()) {
+      showNotification('Please enter a query for regeneration.', 'error');
+      return;
+    }
+    
+    setIsRegenerating(dayNum);
+    setShowRegenModal(null);
+    
+    try {
+      const res = await api.post(`/itineraries/regenerate-day/${id}`, {
+        dayNumbers: [dayNum],
+        query: regenQuery
+      });
+      
+      setItinerary(res.data);
+      setEditedData(res.data.itineraryData);
+      setRegenQuery('');
+      showNotification(`Day ${dayNum} regenerated successfully!`, 'success');
+    } catch (err) {
+      console.error('Failed to regenerate day', err);
+      showNotification('Failed to regenerate day.', 'error');
+    } finally {
+      setIsRegenerating(null);
     }
   };
 
@@ -262,7 +292,21 @@ export default function ItineraryView() {
                         }}
                       />
                     ) : (
-                      <h3 className="text-3xl sm:text-4xl font-black leading-tight tracking-tight uppercase">{day.title}</h3>
+                      <div className="flex justify-between items-start gap-4">
+                        <h3 className="text-3xl sm:text-4xl font-black leading-tight tracking-tight uppercase">{day.title}</h3>
+                        <button 
+                          onClick={() => setShowRegenModal(day.day)}
+                          disabled={isRegenerating !== null}
+                          className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all border border-blue-500/20 group"
+                          title="Regenerate this day"
+                        >
+                          {isRegenerating === day.day ? (
+                            <Loader2 size={18} className="animate-spin" />
+                          ) : (
+                            <RotateCcw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
                   
@@ -408,6 +452,54 @@ export default function ItineraryView() {
           </aside>
         </div>
       </div>
+
+      {/* Regeneration Modal */}
+      <AnimatePresence>
+        {showRegenModal !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="premium-card max-w-lg w-full p-8 space-y-6"
+            >
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-black uppercase tracking-tight">Regenerate Day {showRegenModal}</h3>
+                <button onClick={() => setShowRegenModal(null)} className="text-slate-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <p className="text-slate-400 text-sm italic">
+                Tell the AI how you want to change this day (e.g., "more outdoor activities", "focus on historical monuments").
+              </p>
+              
+              <textarea
+                className="glass-input w-full min-h-[120px] bg-white/5 border-white/10 p-4 rounded-2xl resize-none text-[var(--foreground)]"
+                placeholder="Ex: I want more local food experiences and fewer museums..."
+                value={regenQuery}
+                onChange={(e) => setRegenQuery(e.target.value)}
+                autoFocus
+              />
+              
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowRegenModal(null)}
+                  className="flex-1 px-6 py-3 rounded-2xl border border-white/10 hover:bg-white/5 transition-all font-bold text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => showRegenModal !== null && handleRegenerateDay(showRegenModal)}
+                  className="flex-1 btn-primary py-3 rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20"
+                >
+                  Regenerate
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

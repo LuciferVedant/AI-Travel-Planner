@@ -133,6 +133,91 @@ const modelsToTry = [
   throw new Error('No valid AI API Key found.');
 };
 
+// Function to regenerate a single day
+const generateAIItineraryDay = async (
+  destination: string,
+  dayNumber: number,
+  interests: string[],
+  guests: { adults: number; children: number; pets: number },
+  query: string,
+  currency: string = 'INR'
+) => {
+  const guestInfo = `${guests.adults} adults, ${guests.children} children, and ${guests.pets} pets`;
+  
+  const prompt = `Regenerate Day ${dayNumber} of a travel itinerary for ${destination} based on this specific request: "${query}".
+  The squad consists of ${guestInfo}. Original interests were: ${interests.join(', ')}.
+  
+  Provide a revised plan for Day ${dayNumber} with specific activities suitable for this group and matching the new request.
+  
+  Activity & Food Costs:
+  - For EACH activity in the daily plan, provide an estimated cost (in ${currency}).
+  - Provide an estimated daily cost for food/meals for the entire squad.
+  
+  Return the response in strictly this JSON format:
+  {
+    "day": ${dayNumber},
+    "title": "...",
+    "activities": [
+      { "name": "...", "description": "...", "cost": 100 }
+    ],
+    "dailyFoodCost": 50,
+    "transportation": { "type": "Local Taxi", "cost": 20 }
+  }`;
+
+  // Prioritize Gemini
+  if (genAI) {
+    const modelsToTry = [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-3-flash-preview",
+      "gemini-2.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
+    ];
+    let lastError = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[Gemini-Day] Attempting ${modelName}...`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+        
+        const response = await result.response;
+        let text = response.text();
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(text);
+      } catch (err: any) {
+        console.warn(`[Gemini-Day] ${modelName} failed:`, err.message);
+        lastError = err;
+        continue; // Try next model
+      }
+    }
+  }
+
+  // Fallback to OpenAI
+  if (openai) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-1106",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error('No content returned from OpenAI');
+      return JSON.parse(content);
+    } catch (err: any) {
+      throw new Error('Failed to regenerate day with any LLM.');
+    }
+  }
+
+  throw new Error('No valid AI API Key found.');
+};
+
 // Create (Generate) Itinerary
 router.post('/generate', authenticate, async (req: Request, res: Response) => {
   try {
@@ -235,6 +320,78 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
     res.json({ message: 'Itinerary deleted' });
   } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Regenerate specific day(s)
+router.post('/regenerate-day/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: 'User ID missing' });
+
+    const { dayNumbers, query } = req.body; // dayNumbers can be a single number or an array
+    if (!dayNumbers || !query) {
+      return res.status(400).json({ message: 'Day numbers and query are required' });
+    }
+
+    const daysToRegenerate = Array.isArray(dayNumbers) ? dayNumbers : [dayNumbers];
+
+    const itinerary = await Itinerary.findOne({ _id: req.params.id, userId });
+    if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
+
+    const updatedItineraryData = [...itinerary.itineraryData];
+
+    for (const dayNum of daysToRegenerate) {
+      // Generate new data for that day
+      const newDayData = await generateAIItineraryDay(
+        itinerary.destination,
+        dayNum,
+        itinerary.interests,
+        itinerary.guests,
+        query,
+        itinerary.currency
+      );
+
+      // Update itineraryData array
+      const dayIndex = updatedItineraryData.findIndex((d: any) => d.day === dayNum);
+      
+      if (dayIndex !== -1) {
+        updatedItineraryData[dayIndex] = newDayData;
+      } else {
+        updatedItineraryData.push(newDayData);
+      }
+    }
+
+    // Sort by day number
+    updatedItineraryData.sort((a: any, b: any) => a.day - b.day);
+
+    // Recalculate total cost
+    let totalActivityCost = 0;
+    let totalFoodCost = 0;
+    
+    updatedItineraryData.forEach((day: any) => {
+      day.activities.forEach((act: any) => {
+        totalActivityCost += (act.cost || 0);
+      });
+      totalFoodCost += (day.dailyFoodCost || 0);
+      if (day.transportation && day.transportation.cost) {
+        totalActivityCost += day.transportation.cost;
+      }
+    });
+
+    const totalHotelCost = itinerary.hotels.reduce((sum: number, hotel: any) => sum + (hotel.price || 0), 0);
+    const flightCost = itinerary.flights?.estimatedCost || 0;
+    
+    const newTotalCost = totalActivityCost + totalFoodCost + totalHotelCost + flightCost;
+
+    itinerary.itineraryData = updatedItineraryData;
+    itinerary.totalEstimatedCost = newTotalCost;
+    
+    await itinerary.save();
+    res.json(itinerary);
+  } catch (err: any) {
+    console.error('Regenerate Day Error:', err);
     res.status(500).json({ message: err.message });
   }
 });

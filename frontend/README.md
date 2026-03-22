@@ -16,6 +16,20 @@ The high-end, reactive user interface for the **TrippieAI** Travel Planner.
 - **Modular Components**: Highly reusable premium UI components with glassmorphic aesthetics.
 - **Responsive Design**: Mobile-first navigation with a sophisticated collapsible drawer.
 
+## 🤖 AI Design & Intelligence
+
+The frontend is designed to interact with a high-performance AI orchestration layer:
+- **Reactive Generation**: Real-time feedback and state updates during itinerary generation.
+- **Structured Data Rendering**: Sophisticated UI components that translate complex AI-generated JSON into beautiful, readable travel plans.
+- **Provider Transparency**: Built to support multiple AI backends (Gemini/OpenAI) seamlessly.
+
+## ✨ Creative Feature: Live Day Regeneration
+
+The frontend powers a unique, granular editing experience:
+- **Interactive Day Modification**: Users can trigger the AI to regenerate specific days of their trip without affecting the overall structure.
+- **Dynamic Cost Updates**: The UI instantly reflects changes in activity, food, and hotel costs across the entire itinerary.
+- **Natural Language Refinement**: A simple, intuitive interface for users to provide feedback to the AI agent.
+
 ## 🚀 Getting Started
 
 ### 1. Installation
