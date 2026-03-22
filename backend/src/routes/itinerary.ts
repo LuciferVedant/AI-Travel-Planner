@@ -26,19 +26,32 @@ const generateAIItinerary = async (
   interests: string[], 
   guests: { adults: number; children: number; pets: number },
   budget?: number, 
-  currency: string = 'INR'
+  currency: string = 'INR',
+  startDate?: string,
+  endDate?: string
 ) => {
   const budgetInfo = budget ? `within a budget of ${currency} ${budget}` : `with an estimated budget calculation in ${currency}`;
   const guestInfo = `${guests.adults} adults, ${guests.children} children, and ${guests.pets} pets`;
+  const dateInfo = startDate && endDate ? `from ${startDate} to ${endDate} (${days} days)` : `for ${days} days`;
 
-  const prompt = `Plan a ${days}-day travel itinerary for a trip to ${destination} starting from ${departureLocation}. 
+  const prompt = `Plan a travel itinerary for a trip to ${destination} starting from ${departureLocation} ${dateInfo}. 
   The squad consists of ${guestInfo}. Our interests are: ${interests.join(', ')}.
   The plan should be ${budgetInfo}.
   
   Provide a day-by-day plan with specific activities suitable for this group. Since we are starting from ${departureLocation}, please consider travel time/logistics for the first and last day if relevant.
-  Also suggest 3 hotels in ${destination} that can accommodate ${guestInfo} with estimated price (in ${currency}) and rating.
   
-  If the budget was not provided, please calculate a realistic estimated budget for this entire trip (in ${currency}) (including local travel, food, and activities).
+  Flights/Transportation estimation:
+  - Estimate the cost of traveling from ${departureLocation} to ${destination} for the entire squad (${guestInfo}).
+  - Provide details for 'Flights' or 'Train/Car' based on the destination and distance.
+  
+  Activity & Food Costs:
+  - For EACH activity in the daily plan, provide an estimated cost (in ${currency}).
+  - Provide an estimated daily cost for food/meals for the entire squad.
+  
+  Hotels:
+  - Suggest 3 hotels in ${destination} that can accommodate ${guestInfo} with estimated price per night (in ${currency}) and rating.
+  
+  IMPORTANT: The totalEstimatedCost should be the sum of (Flights + Total Activity Costs + Total Hotel Costs + Total Food Costs).
   
   Return the response in strictly this JSON format:
   {
@@ -46,13 +59,23 @@ const generateAIItinerary = async (
       {
         "day": 1,
         "title": "...",
-        "activities": ["...", "..."]
+        "activities": [
+          { "name": "...", "description": "...", "cost": 100 }
+        ],
+        "dailyFoodCost": 50,
+        "transportation": { "type": "Local Taxi", "cost": 20 }
       }
     ],
     "hotels": [
-      { "name": "...", "price": "...", "rating": 4.5 }
+      { "name": "...", "price": 500, "rating": 4.5, "description": "..." }
     ],
-    "estimatedBudget": 1234
+    "flights": {
+      "mode": "Flight",
+      "route": "${departureLocation} to ${destination}",
+      "estimatedCost": 2500,
+      "details": "..."
+    },
+    "totalEstimatedCost": 1234
   }`;
 
   // Prioritize Gemini as default if key is available
@@ -120,7 +143,9 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       interests, 
       budget, 
       currency = 'INR', 
-      guests = { adults: 1, children: 0, pets: 0 } 
+      guests = { adults: 1, children: 0, pets: 0 },
+      startDate,
+      endDate
     } = req.body;
     
     const userId = req.user?.userId;
@@ -129,10 +154,10 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
     if (!departureLocation) return res.status(400).json({ message: 'Departure location is required' });
 
     // Call real LLM API
-    const aiResponse = await generateAIItinerary(destination, departureLocation, days, interests, guests, budget, currency);
+    const aiResponse = await generateAIItinerary(destination, departureLocation, days, interests, guests, budget, currency, startDate, endDate);
     
-    const finalBudget = budget || aiResponse.estimatedBudget;
-
+    const finalBudget = budget || aiResponse.totalEstimatedCost;
+    
     const newItinerary = new Itinerary({
       userId,
       destination,
@@ -142,8 +167,12 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       guests,
       budget: finalBudget,
       currency,
+      startDate,
+      endDate,
       itineraryData: aiResponse.itineraryData,
-      hotels: aiResponse.hotels
+      hotels: aiResponse.hotels,
+      flights: aiResponse.flights,
+      totalEstimatedCost: aiResponse.totalEstimatedCost
     });
 
     await newItinerary.save();

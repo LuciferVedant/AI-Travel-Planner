@@ -25,7 +25,10 @@ export default function CreateTrip() {
   const [interestInput, setInterestInput] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [guests, setGuests] = useState({ adults: 1, children: 0, pets: 0 });
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
   
   const [errors, setErrors] = useState<{ destination?: string; departureLocation?: string; days?: string }>({});
   const { token } = useAppSelector((state) => state.auth);
@@ -36,12 +39,28 @@ export default function CreateTrip() {
     if (!token) router.push('/login');
   }, [token, router]);
 
+  useEffect(() => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays > 0 && diffDays <= 14) {
+        setDays(diffDays);
+        setErrors(prev => ({ ...prev, days: undefined }));
+      } else if (diffDays > 14) {
+        setErrors(prev => ({ ...prev, days: 'Duration cannot exceed 14 days' }));
+      }
+    }
+  }, [startDate, endDate]);
+
   const validate = () => {
     const newErrors: { destination?: string; departureLocation?: string; days?: string } = {};
     if (!destination.trim()) newErrors.destination = 'Destination is required';
     if (!departureLocation.trim()) newErrors.departureLocation = 'Starting point is required';
-    if (!days || days < 1) newErrors.days = 'Duration must be at least 1 day';
-    if (days > 14) newErrors.days = 'Maximum duration is 14 days';
+    if (!startDate || !endDate) newErrors.days = 'Please select travel dates';
+    else if (days < 1) newErrors.days = 'Duration must be at least 1 day';
+    else if (days > 14) newErrors.days = 'Maximum duration is 14 days';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -77,7 +96,9 @@ export default function CreateTrip() {
         interests, 
         guests, 
         budget: budget === '' ? undefined : budget, 
-        currency 
+        currency,
+        startDate,
+        endDate
       };
       const res = await api.post('/itineraries/generate', payload);
       showNotification('Itinerary generated successfully!', 'success');
@@ -135,11 +156,27 @@ export default function CreateTrip() {
             />
           </InputGroup>
 
-          <InputGroup label="Stay Duration" icon={<Calendar size={18} />} error={errors.days} sub="Max 14 days">
-            <input 
-              type="number" className="glass-input w-full font-bold text-lg" min="1" max="14"
-              value={days} onChange={(e) => { setDays(parseInt(e.target.value) || 0); setErrors({...errors, days: undefined}); }}
-            />
+          <InputGroup label="Trip Dates" icon={<Calendar size={18} />} error={errors.days}>
+            <div className="grid grid-cols-2 gap-4">
+              <input 
+                type="date" className="glass-input w-full font-bold text-sm"
+                min={today}
+                value={startDate} onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (endDate && e.target.value > endDate) setEndDate('');
+                }}
+              />
+              <input 
+                type="date" className="glass-input w-full font-bold text-sm"
+                min={startDate || today}
+                value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            {startDate && endDate && (
+              <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mt-2 px-1">
+                Duration: {days} Days
+              </p>
+            )}
           </InputGroup>
         </div>
 

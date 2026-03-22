@@ -12,10 +12,18 @@ import {
 import { useNotification } from '@/components/NotificationProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Activity {
+  name: string;
+  description: string;
+  cost: number | string;
+}
+
 interface DayPlan {
   day: number;
   title: string;
-  activities: string[];
+  activities: (string | Activity)[];
+  dailyFoodCost?: number | string;
+  transportation?: { type: string; cost: number | string };
 }
 
 interface Itinerary {
@@ -30,8 +38,17 @@ interface Itinerary {
   };
   budget: number;
   currency: string;
+  startDate?: string;
+  endDate?: string;
   itineraryData: DayPlan[];
-  hotels: { name: string; price: string; rating: number }[];
+  hotels: { name: string; price: string; rating: number; description?: string }[];
+  flights?: {
+    mode: string;
+    route: string;
+    estimatedCost: number | string;
+    details: string;
+  };
+  totalEstimatedCost?: number;
 }
 
 const getCurrencySymbol = (code: string) => {
@@ -89,7 +106,12 @@ export default function ItineraryView() {
   const handleActivityChange = (dayIndex: number, activityIndex: number, value: string) => {
     const newData = [...editedData];
     if (newData[dayIndex]) {
-      newData[dayIndex].activities[activityIndex] = value;
+      const activity = newData[dayIndex].activities[activityIndex];
+      if (typeof activity === 'string') {
+        newData[dayIndex].activities[activityIndex] = value;
+      } else {
+        newData[dayIndex].activities[activityIndex] = { ...activity, name: value };
+      }
       setEditedData(newData);
     }
   };
@@ -150,10 +172,16 @@ export default function ItineraryView() {
             </h1>
             
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <Badge icon={<Calendar size={14} />} label={`${itinerary.days} Days`} />
+              <Badge 
+                icon={<Calendar size={14} />} 
+                label={itinerary.startDate && itinerary.endDate 
+                  ? `${new Date(itinerary.startDate).toLocaleDateString()} - ${new Date(itinerary.endDate).toLocaleDateString()}`
+                  : `${itinerary.days} Days`
+                } 
+              />
               <Badge 
                 icon={<></>} 
-                label={`${getCurrencySymbol(itinerary.currency)} ${itinerary.budget}`} 
+                label={`${getCurrencySymbol(itinerary.currency)} ${itinerary.totalEstimatedCost || itinerary.budget}`} 
                 className="text-emerald-400 border-emerald-500/10 bg-emerald-500/5"
               />
               <Badge 
@@ -245,16 +273,48 @@ export default function ItineraryView() {
                         {isEditing ? (
                           <textarea 
                             className="glass-input w-full min-h-[100px] text-slate-300 bg-white/5"
-                            value={activity}
+                            value={typeof activity === 'string' ? activity : activity.name}
                             onChange={(e) => handleActivityChange(dIdx, aIdx, e.target.value)}
                           />
                         ) : (
-                          <p className="text-[var(--foreground)]/80 dark:text-slate-300 leading-relaxed text-lg sm:text-xl font-medium tracking-wide">{activity}</p>
+                          <div className="flex-1">
+                            {typeof activity === 'string' ? (
+                              <p className="text-[var(--foreground)]/80 dark:text-slate-300 leading-relaxed text-lg sm:text-xl font-medium tracking-wide">{activity}</p>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className="flex justify-between items-start gap-4">
+                                  <h4 className="text-[var(--foreground)] text-lg sm:text-xl font-bold">{activity.name}</h4>
+                                  <span className="text-emerald-400 font-bold shrink-0">
+                                    {getCurrencySymbol(itinerary.currency)} {activity.cost}
+                                  </span>
+                                </div>
+                                <p className="text-[var(--foreground)]/60 dark:text-slate-400 leading-relaxed text-base">{activity.description}</p>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Day Footer with Costs */}
+                {!isEditing && (day.dailyFoodCost || day.transportation) && (
+                  <div className="mt-4 flex flex-wrap gap-4 pl-6 sm:pl-10">
+                    {day.dailyFoodCost && (
+                      <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-500">Food</span>
+                        <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.dailyFoodCost}</span>
+                      </div>
+                    )}
+                    {day.transportation && (
+                      <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-500">{day.transportation.type}</span>
+                        <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.transportation.cost}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -288,6 +348,32 @@ export default function ItineraryView() {
                 ))}
               </div>
             </motion.div>
+
+            {/* Flights / Transportation */}
+            {itinerary.flights && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                className="premium-card p-8 bg-blue-600/5 border-blue-500/20"
+              >
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
+                    <MapIcon size={24} />
+                  </div>
+                  <h4 className="text-xl font-black uppercase tracking-tight">Travel Info</h4>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">{itinerary.flights.mode}</span>
+                    <span className="text-emerald-400 font-black text-sm">
+                      {getCurrencySymbol(itinerary.currency)} {itinerary.flights.estimatedCost}
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-[var(--foreground)]">{itinerary.flights.route}</div>
+                  <p className="text-xs text-slate-400 leading-relaxed">{itinerary.flights.details}</p>
+                </div>
+              </motion.div>
+            )}
 
             {/* Vibes */}
             <motion.div 
