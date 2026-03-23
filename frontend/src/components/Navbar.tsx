@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import { logout } from '@/redux/slices/authSlice';
-import { MapPin, LogOut, User as UserIcon, PlusCircle, Menu, X } from 'lucide-react';
+import { MapPin, LogOut, User as UserIcon, PlusCircle, Menu, X, Compass } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,6 +64,7 @@ export default function Navbar() {
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center gap-6"
                 >
+                  <Link href="/discover" className="hover:text-blue-400 transition-colors font-medium">Discover</Link>
                   <Link href="/dashboard" className="hover:text-blue-400 transition-colors font-medium">Dashboard</Link>
                   <Link href="/create-trip" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-full transition-all shadow-lg shadow-blue-500/20 text-white font-bold text-sm">
                     <PlusCircle size={18} />
@@ -133,6 +134,7 @@ export default function Navbar() {
                       </p>
                     </div>
 
+                    <DrawerLink href="/discover" icon={<Compass size={18} />} label="Discover" onClick={() => setIsMenuOpen(false)} />
                     <DrawerLink href="/dashboard" icon={<MapPin size={18} />} label="Dashboard" onClick={() => setIsMenuOpen(false)} />
                     <DrawerLink href="/create-trip" icon={<PlusCircle size={18} />} label="New Trip" onClick={() => setIsMenuOpen(false)} highlight />
                     <DrawerLink href="/profile" icon={<UserIcon size={18} />} label="Profile" onClick={() => setIsMenuOpen(false)} />

@@ -268,26 +268,74 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// Get all itineraries for user
+// Get all itineraries for user (either creator or member)
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID missing' });
-    const itineraries = await Itinerary.find({ userId }).sort({ createdAt: -1 });
+    
+    // Find itineraries where the user is either the creator OR a member
+    const itineraries = await Itinerary.find({
+      $or: [
+        { userId },
+        { 'members.user': userId }
+      ]
+    }).sort({ createdAt: -1 });
+    
     res.json(itineraries);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Get single itinerary
+// Get all public itineraries
+router.get('/public', authenticate, async (req: Request, res: Response) => {
+  try {
+    const itineraries = await Itinerary.find({ isPublic: true })
+      .populate('userId', 'username') // Only basic info
+      .sort({ createdAt: -1 });
+    res.json(itineraries);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get single itinerary (creator, member, or public)
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID missing' });
-    const itinerary = await Itinerary.findOne({ _id: req.params.id, userId });
+    
+    const itinerary = await Itinerary.findById(req.params.id)
+      .populate('userId', 'username email')
+      .populate('members.user', 'username email');
+    
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
+    
+    // Check permission: creator, member, or public
+    const isCreator = (itinerary.userId?._id || itinerary.userId)?.toString() === userId.toString();
+    const isMember = itinerary.members?.some((m: any) => (m.user?._id || m.user)?.toString() === userId.toString());
+    
+    if (!isCreator && !isMember && !itinerary.isPublic) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
     res.json(itinerary);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Toggle trip visibility
+router.patch('/:id/toggle-visibility', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const itinerary = await Itinerary.findOne({ _id: req.params.id, userId }); // Only creator
+    if (!itinerary) return res.status(404).json({ message: 'Itinerary not found or permission denied' });
+    
+    itinerary.isPublic = !itinerary.isPublic;
+    await itinerary.save();
+    res.json({ isPublic: itinerary.isPublic });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -299,16 +347,34 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID missing' });
     const { itineraryData } = req.body;
-    const itinerary = await Itinerary.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      { itineraryData },
-      { new: true }
-    );
+    
+    const itinerary = await Itinerary.findById(req.params.id);
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
+
+    const isCreator = itinerary.userId.toString() === userId.toString();
+    const isAdmin = (itinerary.members || []).some(m => m.user.toString() === userId.toString() && m.role === 'admin');
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    itinerary.itineraryData = itineraryData;
+    await itinerary.save();
+    
     res.json(itinerary);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
+});
+
+import Message from '../models/Message.js';
+import JoinRequest from '../models/JoinRequest.js';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // Delete itinerary
@@ -316,9 +382,44 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'User ID missing' });
+    
+    // Only the creator (default admin) can delete the itinerary
     const itinerary = await Itinerary.findOneAndDelete({ _id: req.params.id, userId });
-    if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
-    res.json({ message: 'Itinerary deleted' });
+    if (!itinerary) return res.status(404).json({ message: 'Itinerary not found or you do not have permission to delete it' });
+    
+    // Delete Cloudinary files from chat messages before removing them
+    const fileMessages = await Message.find({
+      itineraryId: req.params.id,
+      messageType: { $in: ['image', 'video', 'file'] },
+      fileUrl: { $exists: true, $ne: null }
+    });
+
+    for (const msg of fileMessages) {
+      try {
+        if (msg.fileUrl && msg.fileUrl.startsWith('http')) {
+          // Extract the public ID from the Cloudinary URL
+          // URL format: https://res.cloudinary.com/cloud/image/upload/v.../trippie-chat/filename.ext
+          const urlParts = msg.fileUrl.split('/');
+          const uploadIndex = urlParts.indexOf('upload');
+          if (uploadIndex !== -1) {
+            // public_id = everything after /upload/v1234567890/ (and strip extension)
+            const publicIdWithVersion = urlParts.slice(uploadIndex + 2).join('/');
+            const publicId = publicIdWithVersion.replace(/\.[^/.]+$/, ''); // remove extension
+            const resourceType = msg.messageType === 'video' ? 'video' : 'image';
+            await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Failed to delete Cloudinary asset:', msg.fileUrl, cloudErr);
+        // Don't block deletion if Cloudinary cleanup fails
+      }
+    }
+
+    // Delete all related messages and join requests from MongoDB
+    await Message.deleteMany({ itineraryId: req.params.id });
+    await JoinRequest.deleteMany({ itineraryId: req.params.id });
+    
+    res.json({ message: 'Itinerary and all related data deleted successfully' });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -337,8 +438,15 @@ router.post('/regenerate-day/:id', authenticate, async (req: Request, res: Respo
 
     const daysToRegenerate = Array.isArray(dayNumbers) ? dayNumbers : [dayNumbers];
 
-    const itinerary = await Itinerary.findOne({ _id: req.params.id, userId });
+    const itinerary = await Itinerary.findById(req.params.id);
     if (!itinerary) return res.status(404).json({ message: 'Itinerary not found' });
+
+    const isCreator = itinerary.userId.toString() === userId.toString();
+    const isAdmin = (itinerary.members || []).some(m => m.user.toString() === userId.toString() && m.role === 'admin');
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     const updatedItineraryData = [...itinerary.itineraryData];
 

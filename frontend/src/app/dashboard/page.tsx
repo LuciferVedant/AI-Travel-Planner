@@ -21,6 +21,7 @@ interface Itinerary {
     pets: number;
   };
   createdAt: string;
+  userId: string | { _id: string };
 }
 
 const getCurrencySymbol = (code: string) => {
@@ -121,17 +122,25 @@ export default function Dashboard() {
             }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {itineraries.map((trip) => (
-              <TripCard 
-                key={trip._id} 
-                trip={trip} 
-                onDelete={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDeleteModal({ isOpen: true, id: trip._id });
-                }} 
-              />
-            ))}
+            {itineraries.map((trip) => {
+              const currentUserId = user?._id || user?.id;
+              const isCreator = typeof trip.userId === 'string' 
+                ? trip.userId === currentUserId 
+                : trip.userId?._id === currentUserId;
+                
+              return (
+                <TripCard
+                  key={trip._id}
+                  trip={trip}
+                  isCreator={isCreator}
+                  onDelete={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDeleteModal({ isOpen: true, id: trip._id });
+                  }}
+                />
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -149,7 +158,7 @@ export default function Dashboard() {
   );
 }
 
-function TripCard({ trip, onDelete }: { trip: Itinerary; onDelete: (e: React.MouseEvent) => void }) {
+function TripCard({ trip, isCreator, onDelete }: { trip: Itinerary; isCreator: boolean; onDelete: (e: React.MouseEvent) => void }) {
   return (
     <motion.div
       variants={{
@@ -168,13 +177,15 @@ function TripCard({ trip, onDelete }: { trip: Itinerary; onDelete: (e: React.Mou
             <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 bg-white/5 px-3 py-1 rounded-full">
               {new Date(trip.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
-            <button 
-              onClick={onDelete}
-              className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
-              title="Delete Trip"
-            >
-              <Trash2 size={18} />
-            </button>
+            {isCreator && (
+              <button
+                onClick={onDelete}
+                className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                title="Delete Trip"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
         </div>
         

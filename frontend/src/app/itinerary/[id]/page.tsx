@@ -7,8 +7,11 @@ import api from '@/api/apiConfig';
 import { 
   MapPin, Calendar, DollarSign, ArrowLeft, Edit2, 
   Check, X, Hotel, Map as MapIcon, Sparkles, 
-  Users, Baby, Dog, Compass, Download, Loader2, RotateCcw
+  Users, Baby, Dog, Compass, Download, Loader2, RotateCcw, 
+  Globe, Lock, MessageSquare, Settings
 } from 'lucide-react';
+import ChatInterface from '@/components/chat/ChatInterface';
+import GroupManagement from '@/components/itinerary/GroupManagement';
 import { useNotification } from '@/components/NotificationProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -49,6 +52,9 @@ interface Itinerary {
     details: string;
   };
   totalEstimatedCost?: number;
+  isPublic: boolean;
+  userId: { _id: string; username: string; email: string };
+  members: { user: { _id: string; username: string; email: string }; role: 'admin' | 'member' }[];
 }
 
 const getCurrencySymbol = (code: string) => {
@@ -57,6 +63,20 @@ const getCurrencySymbol = (code: string) => {
   };
   return symbols[code] || code;
 };
+
+const TabButton = ({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) => (
+  <button 
+    onClick={onClick}
+    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${
+      active 
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+        : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300 border border-white/5'
+    }`}
+  >
+    {icon}
+    {label}
+  </button>
+);
 
 export default function ItineraryView() {
   const { id } = useParams();
@@ -67,9 +87,15 @@ export default function ItineraryView() {
   const [isRegenerating, setIsRegenerating] = useState<number | null>(null); // Day number being regenerated
   const [regenQuery, setRegenQuery] = useState('');
   const [showRegenModal, setShowRegenModal] = useState<number | null>(null);
-  const { token } = useAppSelector((state) => state.auth);
+  const { user, token } = useAppSelector((state) => state.auth);
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'chat' | 'group'>('itinerary');
   const router = useRouter();
   const { showNotification } = useNotification();
+
+  const currentUserId = user?._id || user?.id;
+  const isCreator = itinerary?.userId?._id === currentUserId || (itinerary?.userId as any) === currentUserId;
+  const isAdmin = isCreator || itinerary?.members?.some(m => (m.user?._id === currentUserId || (m.user as any) === currentUserId) && m.role === 'admin');
+  const isMember = itinerary?.members?.some(m => m.user?._id === currentUserId || (m.user as any) === currentUserId);
 
   useEffect(() => {
     if (!token) {
@@ -244,123 +270,228 @@ export default function ItineraryView() {
                   </button>
                 </motion.div>
               ) : (
-                <button 
-                  onClick={() => setIsEditing(true)} 
-                  className="btn-primary flex items-center justify-center gap-3 px-10 py-5 rounded-2xl shadow-2xl shadow-blue-500/20 font-bold text-lg w-full sm:w-auto hover:scale-105 active:scale-95 transition-all"
-                >
-                  <Edit2 size={20} /> Edit Itinerary
-                </button>
+                isAdmin && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="btn-primary flex items-center justify-center gap-3 px-10 py-5 rounded-2xl shadow-2xl shadow-blue-500/20 font-bold text-lg w-full sm:w-auto hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Edit2 size={20} /> Edit Itinerary
+                  </button>
+                )
               )}
             </AnimatePresence>
+
+            {isCreator && (
+              <button 
+                onClick={async () => {
+                  try {
+                    const res = await api.patch(`/itineraries/${id}/toggle-visibility`);
+                    setItinerary(prev => prev ? { ...prev, isPublic: res.data.isPublic } : null);
+                    showNotification(`Trip is now ${res.data.isPublic ? 'Public' : 'Private'}`, 'success');
+                  } catch (err) {
+                    showNotification('Failed to toggle visibility', 'error');
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 px-6 py-4 rounded-2xl border transition-all font-bold text-sm ${
+                  itinerary.isPublic 
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' 
+                    : 'bg-slate-500/10 border-slate-500/20 text-slate-400 hover:bg-slate-500/20'
+                }`}
+              >
+                {itinerary.isPublic ? <Globe size={18} /> : <Lock size={18} />}
+                {itinerary.isPublic ? 'Public' : 'Private'}
+              </button>
+            )}
+
+            {!isCreator && !isMember && itinerary.isPublic && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post(`/group/request-join/${id}`);
+                    showNotification('Join request sent successfully!', 'success');
+                  } catch (err: any) {
+                    showNotification(err.response?.data?.message || 'Failed to send join request', 'error');
+                  }
+                }}
+                className="btn-primary flex items-center justify-center gap-2 px-8 py-4 rounded-2xl shadow-xl shadow-blue-500/20 font-bold text-sm"
+              >
+                <Users size={18} /> Request to Join
+              </button>
+            )}
           </div>
         </motion.div>
 
+        {/* Tabs */}
+        <div className="flex gap-4 mb-10 overflow-x-auto pb-2 scrollbar-none">
+          <TabButton 
+            active={activeTab === 'itinerary'} 
+            onClick={() => setActiveTab('itinerary')} 
+            icon={<Compass size={18} />} 
+            label="Plan" 
+          />
+          <TabButton 
+            active={activeTab === 'chat'} 
+            onClick={() => setActiveTab('chat')} 
+            icon={<MessageSquare size={18} />} 
+            label="Chat" 
+          />
+          {isAdmin && (
+            <TabButton 
+              active={activeTab === 'group'} 
+              onClick={() => setActiveTab('group')} 
+              icon={<Settings size={18} />} 
+              label="Group" 
+            />
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-          {/* Main Itinerary */}
-          <div className="lg:col-span-8 space-y-12">
-            {editedData.map((day, dIdx) => (
-              <motion.div 
-                key={dIdx} 
-                initial={{ opacity: 0, x: -20 }} 
-                whileInView={{ opacity: 1, x: 0 }} 
-                viewport={{ once: true }}
-                transition={{ delay: dIdx * 0.1 }}
-                className="relative pl-12 sm:pl-20"
-              >
-                {/* Vertical Connector Line */}
-                {dIdx !== editedData.length - 1 && (
-                  <div className="absolute left-[20px] sm:left-[36px] top-14 bottom-[-48px] w-1 bg-gradient-to-b from-blue-500/30 to-transparent rounded-full" />
-                )}
-                
-                {/* Day Number */}
-                <div className="absolute left-0 top-0 w-10 sm:w-[72px] h-10 sm:h-[72px] rounded-3xl bg-[var(--background)] border-2 border-blue-500 flex items-center justify-center text-[var(--foreground)] font-black text-xl sm:text-3xl shadow-[0_0_30px_rgba(59,130,246,0.3)] z-10">
-                  {day.day}
-                </div>
+          {/* Main Content Area */}
+          <div className="lg:col-span-8">
+            <AnimatePresence mode="wait">
+              {activeTab === 'itinerary' && (
+                <motion.div 
+                  key="itinerary-tab"
+                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  className="space-y-12"
+                >
+                  {editedData.map((day, dIdx) => (
+                    <motion.div 
+                      key={dIdx} 
+                      initial={{ opacity: 0, x: -20 }} 
+                      whileInView={{ opacity: 1, x: 0 }} 
+                      viewport={{ once: true }}
+                      transition={{ delay: dIdx * 0.1 }}
+                      className="relative pl-12 sm:pl-20"
+                    >
+                      {/* Vertical Connector Line */}
+                      {dIdx !== editedData.length - 1 && (
+                        <div className="absolute left-[20px] sm:left-[36px] top-14 bottom-[-48px] w-1 bg-gradient-to-b from-blue-500/30 to-transparent rounded-full" />
+                      )}
+                      
+                      {/* Day Number */}
+                      <div className="absolute left-0 top-0 w-10 sm:w-[72px] h-10 sm:h-[72px] rounded-3xl bg-[var(--background)] border-2 border-blue-500 flex items-center justify-center text-[var(--foreground)] font-black text-xl sm:text-3xl shadow-[0_0_30px_rgba(59,130,246,0.3)] z-10">
+                        {day.day}
+                      </div>
 
-                <div className="premium-card p-6 sm:p-10 border-white/5 relative overflow-hidden group/day hover:border-blue-500/30 transition-all">
-                  <div className="relative z-10 mb-10">
-                    {isEditing ? (
-                      <input 
-                        className="glass-input w-full text-2xl font-bold bg-white/5 border-white/10"
-                        value={day.title}
-                        onChange={(e) => {
-                          const newData = [...editedData];
-                          if (newData[dIdx]) {
-                            newData[dIdx].title = e.target.value;
-                            setEditedData(newData);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="flex justify-between items-start gap-4">
-                        <h3 className="text-3xl sm:text-4xl font-black leading-tight tracking-tight uppercase">{day.title}</h3>
-                        <button 
-                          onClick={() => setShowRegenModal(day.day)}
-                          disabled={isRegenerating !== null}
-                          className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all border border-blue-500/20 group"
-                          title="Regenerate this day"
-                        >
-                          {isRegenerating === day.day ? (
-                            <Loader2 size={18} className="animate-spin" />
+                      <div className="premium-card p-6 sm:p-10 border-white/5 relative overflow-hidden group/day hover:border-blue-500/30 transition-all">
+                        <div className="relative z-10 mb-10">
+                          {isEditing ? (
+                            <input 
+                              className="glass-input w-full text-2xl font-bold bg-white/5 border-white/10"
+                              value={day.title}
+                              onChange={(e) => {
+                                const newData = [...editedData];
+                                if (newData[dIdx]) {
+                                  newData[dIdx].title = e.target.value;
+                                  setEditedData(newData);
+                                }
+                              }}
+                            />
                           ) : (
-                            <RotateCcw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+                            <div className="flex justify-between items-start gap-4">
+                              <h3 className="text-3xl sm:text-4xl font-black leading-tight tracking-tight uppercase">{day.title}</h3>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => setShowRegenModal(day.day)}
+                                  disabled={isRegenerating !== null}
+                                  className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all border border-blue-500/20 group"
+                                  title="Regenerate this day"
+                                >
+                                  {isRegenerating === day.day ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                  ) : (
+                                    <RotateCcw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-8">
-                    {day.activities.map((activity, aIdx) => (
-                      <div key={aIdx} className="flex gap-6 items-start group/act">
-                        <div className="mt-2.5 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)] shrink-0 group-hover/act:scale-150 transition-transform" />
-                        {isEditing ? (
-                          <textarea 
-                            className="glass-input w-full min-h-[100px] text-slate-300 bg-white/5"
-                            value={typeof activity === 'string' ? activity : activity.name}
-                            onChange={(e) => handleActivityChange(dIdx, aIdx, e.target.value)}
-                          />
-                        ) : (
-                          <div className="flex-1">
-                            {typeof activity === 'string' ? (
-                              <p className="text-[var(--foreground)]/80 dark:text-slate-300 leading-relaxed text-lg sm:text-xl font-medium tracking-wide">{activity}</p>
-                            ) : (
-                              <div className="space-y-1">
-                                <div className="flex justify-between items-start gap-4">
-                                  <h4 className="text-[var(--foreground)] text-lg sm:text-xl font-bold">{activity.name}</h4>
-                                  <span className="text-emerald-400 font-bold shrink-0">
-                                    {getCurrencySymbol(itinerary.currency)} {activity.cost}
-                                  </span>
+                        </div>
+                        
+                        <div className="space-y-8">
+                          {day.activities.map((activity, aIdx) => (
+                            <div key={aIdx} className="flex gap-6 items-start group/act">
+                              <div className="mt-2.5 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)] shrink-0 group-hover/act:scale-150 transition-transform" />
+                              {isEditing ? (
+                                <textarea 
+                                  className="glass-input w-full min-h-[100px] text-slate-300 bg-white/5"
+                                  value={typeof activity === 'string' ? activity : activity.name}
+                                  onChange={(e) => handleActivityChange(dIdx, aIdx, e.target.value)}
+                                />
+                              ) : (
+                                <div className="flex-1">
+                                  {typeof activity === 'string' ? (
+                                    <p className="text-[var(--foreground)]/80 dark:text-slate-300 leading-relaxed text-lg sm:text-xl font-medium tracking-wide">{activity}</p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-start gap-4">
+                                        <h4 className="text-[var(--foreground)] text-lg sm:text-xl font-bold">{activity.name}</h4>
+                                        <span className="text-emerald-400 font-bold shrink-0">
+                                          {getCurrencySymbol(itinerary.currency)} {activity.cost}
+                                        </span>
+                                      </div>
+                                      <p className="text-[var(--foreground)]/60 dark:text-slate-400 leading-relaxed text-base">{activity.description}</p>
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-[var(--foreground)]/60 dark:text-slate-400 leading-relaxed text-base">{activity.description}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Day Footer with Costs */}
-                {!isEditing && (day.dailyFoodCost || day.transportation) && (
-                  <div className="mt-4 flex flex-wrap gap-4 pl-6 sm:pl-10">
-                    {day.dailyFoodCost && (
-                      <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
-                        <span className="text-xs font-black uppercase tracking-widest text-slate-500">Food</span>
-                        <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.dailyFoodCost}</span>
-                      </div>
-                    )}
-                    {day.transportation && (
-                      <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
-                        <span className="text-xs font-black uppercase tracking-widest text-slate-500">{day.transportation.type}</span>
-                        <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.transportation.cost}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            ))}
+                      {/* Day Footer with Costs */}
+                      {!isEditing && (day.dailyFoodCost || day.transportation) && (
+                        <div className="mt-4 flex flex-wrap gap-4 pl-6 sm:pl-10">
+                          {day.dailyFoodCost && (
+                            <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
+                              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Food</span>
+                              <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.dailyFoodCost}</span>
+                            </div>
+                          )}
+                          {day.transportation && (
+                            <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
+                              <span className="text-xs font-black uppercase tracking-widest text-slate-500">{day.transportation.type}</span>
+                              <span className="text-sm font-bold text-emerald-400">{getCurrencySymbol(itinerary.currency)} {day.transportation.cost}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+
+              {activeTab === 'chat' && (
+                <motion.div 
+                  key="chat-tab"
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+                >
+                  <ChatInterface itineraryId={id as string} />
+                </motion.div>
+              )}
+
+              {activeTab === 'group' && isAdmin && (
+                <motion.div 
+                  key="group-tab"
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+                  className="premium-card p-8"
+                >
+                  <GroupManagement 
+                    itineraryId={id as string} 
+                    isAdmin={isAdmin} 
+                    isCreator={isCreator} 
+                    members={itinerary.members} 
+                    creator={itinerary.userId}
+                    onUpdate={async () => {
+                      const res = await api.get(`/itineraries/${id}`);
+                      setItinerary(res.data);
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Sidebar */}

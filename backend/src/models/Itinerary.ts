@@ -20,6 +20,11 @@ export interface IItinerary extends mongoose.Document {
   hotels: any[];
   flights?: any; // New field for transportation/flight details
   totalEstimatedCost?: number; // Calculated total from AI
+  isPublic: boolean;
+  members: {
+    user: mongoose.Types.ObjectId;
+    role: 'admin' | 'member';
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +44,11 @@ const ItinerarySchema = new Schema({
   currency: { type: String, default: 'INR' },
   startDate: { type: String },
   endDate: { type: String },
+  isPublic: { type: Boolean, default: false },
+  members: [{
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    role: { type: String, enum: ['admin', 'member'], default: 'member' }
+  }],
   itineraryData: { type: Schema.Types.Mixed, required: true },
   hotels: { type: [Schema.Types.Mixed], default: [] },
   flights: { type: Schema.Types.Mixed },
